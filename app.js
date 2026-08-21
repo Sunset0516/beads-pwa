@@ -641,13 +641,188 @@
   price.addEventListener("input", function () { if (lastResult) renderStats(); });
 
   /* ================= 导出 / 复制 ================= */
+  // 构建高清导出 canvas：模板图 + 内嵌颜色对照表
+  function buildExportCanvas(){
+    if (!lastResult) return null;
+    var vr = viewRect();
+    var grid = lastResult.grid;
+    var numbers = showNumbers.checked;
+    var labels = showLabels.checked;
+    var gridLines = showGrid.checked;
+    var heat = heatmapToggle.checked;
+    var maxD = lastResult.maxDist || 1;
+    // 高清单元格：48 像素（比显示的 26 大近 2 倍，数字更清晰）
+    var cell = 48;
+    var tplW = vr.w * cell, tplH = vr.h * cell;
+
+    // 收集颜色对照表
+    var agg = gatherCounts(false);
+    var legendItems = [];
+    if (colorNumbers){
+      legendItems = Object.keys(colorNumbers).map(function(id){
+        var b = (agg.counts[id] || {}).bead || findBead(id);
+        return { id: id, num: colorNumbers[id], bead: b, n: (agg.counts[id]||{}).n || 0 };
+      }).filter(function(it){ return it.bead; });
+      legendItems.sort(function(a,b){ return a.num - b.num; });
+    }
+
+    // 对照表布局：每行 4 列
+    var legendCols = 4;
+    var legendRows = Math.ceil(legendItems.length / legendCols) || 0;
+    var swatch = 40;        // 色块尺寸
+    var legendRowH = 56;    // 每行高
+    var legendColW = Math.floor((tplW - 40) / legendCols);  // 每列宽（基于模板宽度，至少不窄于 220）
+    if (legendColW < 220) legendColW = 220;
+    var legendW = Math.max(tplW, legendCols * legendColW + 40);
+    var legendH = legendRows > 0 ? (legendRows * legendRowH + 80) : 0;
+    var padX = 20, padTop = 20, gapBetween = 30;
+
+    var totalW = legendW + padX * 2;
+    var totalH = padTop + tplH + (legendH > 0 ? (gapBetween + legendH) : 0) + 20;
+
+    var c = document.createElement("canvas");
+    c.width = totalW; c.height = totalH;
+    var ctx = c.getContext("2d");
+    // 白色底
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, c.width, c.height);
+
+    // ---- 顶部：模板图 ----
+    var ox = padX + (legendW - tplW) / 2;  // 模板水平居中（如果对照表更宽）
+    if (ox < 0) ox = padX;
+    var oy = padTop;
+    // 透明棋盘格背景
+    for (var ly = 0; ly < vr.h; ly++){
+      for (var lx = 0; lx < vr.w; lx++){
+        var gx = vr.x0 + lx, gy = vr.y0 + ly;
+        var cell0 = grid[gy][gx];
+        var px = ox + lx * cell, py = oy + ly * cell;
+        if (!cell0){
+          ctx.fillStyle = ((lx + ly) % 2 === 0) ? "#f2f2f2" : "#e9e9e9";
+          ctx.fillRect(px, py, cell, cell); continue;
+        }
+        var b = cell0.bead;
+        if (heat){
+          var t = cell0.dist / maxD;
+          ctx.fillStyle = heatColor(t);
+        } else {
+          ctx.fillStyle = "rgb(" + b.r + "," + b.g + "," + b.b + ")";
+        }
+        ctx.fillRect(px, py, cell, cell);
+        // 立体圆点
+        ctx.beginPath();
+        ctx.arc(px + cell/2, py + cell/2, cell * 0.42, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(px + cell/2 - cell * 0.12, py + cell/2 - cell * 0.12, cell * 0.1, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,255,.28)"; ctx.fill();
+        // 颜色数字编号（中央大字）
+        if (numbers && colorNumbers){
+          ctx.fillStyle = contrastColor(b.r, b.g, b.b);
+          ctx.font = "bold " + Math.floor(cell * 0.48) + "px sans-serif";
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText(colorNumbers[b.id] || "", px + cell/2, py + cell/2);
+        }
+        // 色号标签（底部小字）
+        if (labels){
+          ctx.fillStyle = contrastColor(b.r, b.g, b.b);
+          ctx.font = Math.floor(cell * 0.22) + "px sans-serif";
+          ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+          ctx.fillText(b.id, px + cell/2, py + cell - 4);
+        }
+        // 进度打卡遮罩
+        if (placed && placed[gy][gx]){
+          ctx.fillStyle = "rgba(40,200,90,.45)";
+          ctx.fillRect(px, py, cell, cell);
+          ctx.strokeStyle = "#1f9d4d"; ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(px + cell * 0.28, py + cell * 0.52);
+          ctx.lineTo(px + cell * 0.44, py + cell * 0.66);
+          ctx.lineTo(px + cell * 0.72, py + cell * 0.34);
+          ctx.stroke();
+        }
+      }
+    }
+    // 网格线
+    if (gridLines){
+      ctx.strokeStyle = "rgba(0,0,0,.2)"; ctx.lineWidth = 1;
+      for (var gx2 = 0; gx2 <= vr.w; gx2++){ ctx.beginPath(); ctx.moveTo(ox + gx2 * cell + .5, oy); ctx.lineTo(ox + gx2 * cell + .5, oy + vr.h * cell); ctx.stroke(); }
+      for (var gy2 = 0; gy2 <= vr.h; gy2++){ ctx.beginPath(); ctx.moveTo(ox, oy + gy2 * cell + .5); ctx.lineTo(ox + vr.w * cell, oy + gy2 * cell + .5); ctx.stroke(); }
+    }
+
+    // ---- 底部：颜色对照表 ----
+    if (legendItems.length > 0){
+      var legendY = oy + vr.h * cell + gapBetween;
+      // 标题
+      ctx.fillStyle = "#222";
+      ctx.font = "bold 28px sans-serif";
+      ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillText("颜色对照表（共 " + legendItems.length + " 种颜色）", padX, legendY);
+      legendY += 50;
+      // 表头底色
+      ctx.fillStyle = "#f5f6ff";
+      ctx.fillRect(padX, legendY - 6, legendW, legendRows * legendRowH + 12);
+      // 每项
+      legendItems.forEach(function(it, idx){
+        var col = idx % legendCols;
+        var row = Math.floor(idx / legendCols);
+        var x = padX + col * legendColW + 10;
+        var y = legendY + row * legendRowH;
+        var b = it.bead;
+        // 编号圆
+        ctx.fillStyle = "rgb(" + b.r + "," + b.g + "," + b.b + ")";
+        ctx.beginPath();
+        ctx.arc(x + swatch/2, y + swatch/2, swatch/2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,.15)"; ctx.lineWidth = 1; ctx.stroke();
+        // 编号数字
+        ctx.fillStyle = contrastColor(b.r, b.g, b.b);
+        ctx.font = "bold 22px sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(it.num, x + swatch/2, y + swatch/2);
+        // 名称 + 色号 + 数量
+        ctx.fillStyle = "#222";
+        ctx.font = "bold 18px sans-serif";
+        ctx.textAlign = "left"; ctx.textBaseline = "top";
+        ctx.fillText(b.name, x + swatch + 12, y + 4);
+        ctx.fillStyle = "#6b6a7d";
+        ctx.font = "15px sans-serif";
+        ctx.fillText("色号 " + b.id + "  ×" + it.n + " 颗", x + swatch + 12, y + 24);
+      });
+    }
+
+    return c;
+  }
+
   downloadBtn.addEventListener("click", function () {
     if (!lastResult) return;
     renderView();
-    var url = resultCanvas.toDataURL("image/png");
-    var a = document.createElement("a");
-    a.href = url; a.download = "拼豆模板_" + lastResult.w + "x" + lastResult.h + ".png"; a.click();
+    var c = buildExportCanvas();
+    if (!c) return;
+    var filename = "拼豆模板_" + lastResult.w + "x" + lastResult.h + ".png";
+    // 优先用 Web Share API（可让用户直接保存到相册）
+    if (c.toBlob && navigator.canShare && navigator.canShare({ files: [new File([""], "test.png", { type: "image/png" })] })){
+      c.toBlob(function (blob) {
+        var file = new File([blob], filename, { type: "image/png" });
+        if (navigator.canShare({ files: [file] })){
+          navigator.share({
+            files: [file],
+            title: "拼豆模板",
+            text: "拼豆模板 " + lastResult.w + "×" + lastResult.h
+          }).catch(function () {});
+        } else {
+          fallbackDownload(c, filename);
+        }
+      }, "image/png");
+    } else {
+      fallbackDownload(c, filename);
+    }
   });
+  function fallbackDownload(c, filename){
+    var url = c.toDataURL("image/png");
+    var a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    setTimeout(function () { URL.revokeObjectURL && URL.revokeObjectURL(url); }, 1000);
+  }
   copyListBtn.addEventListener("click", function () {
     if (!lastResult) return;
     var useView = currentBoard >= 0 && boards;
