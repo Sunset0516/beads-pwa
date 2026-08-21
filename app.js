@@ -4,6 +4,52 @@
   var $ = function (id) { return document.getElementById(id); };
 
   var BEADS = window.BEADS_COLORS || [];
+  /* ================= 多品牌色卡映射 ================= */
+  var PALETTES = window.BEAD_PALETTES || { MARD: { label: "MARD", colors: BEADS } };
+  var CURRENT_BRAND = "MARD";
+  // 品牌品牌 -> { MARD_id -> {id, name, _fallback} }
+  var BRAND_CODE_MAP = {};
+  (function () {
+    for (var k in PALETTES) {
+      var m = {};
+      var cs = PALETTES[k].colors || [];
+      for (var i = 0; i < cs.length; i++) {
+        var c = cs[i];
+        var mid = c._mardId || c.id;
+        m[mid] = { id: c.id, name: c.name || mid, fallback: !!c._fallback };
+      }
+      BRAND_CODE_MAP[k] = m;
+    }
+  })();
+  function getBrandInfo(mardBeadOrId) {
+    var mid = mardBeadOrId && typeof mardBeadOrId === "object" ? mardBeadOrId.id : mardBeadOrId;
+    if (!mid) return { id: mid || "", name: "", fallback: false };
+    var map = BRAND_CODE_MAP[CURRENT_BRAND] || {};
+    return map[mid] || { id: mid, name: mid, fallback: true };
+  }
+  function getBrandId(mardBeadOrId) { return getBrandInfo(mardBeadOrId).id; }
+  function getBrandName(mardBeadOrId, preferBeadName) {
+    var b = getBrandInfo(mardBeadOrId);
+    if (b && b.name && !/^[A-Z]+\d+$/.test(b.name)) return b.name;
+    if (preferBeadName && typeof mardBeadOrId === "object" && mardBeadOrId.name) return mardBeadOrId.name;
+    return b.id;
+  }
+  function paletteCoverage(brand) {
+    var m = BRAND_CODE_MAP[brand] || {};
+    var total = 0, exact = 0;
+    for (var k in m) { total++; if (!m[k].fallback) exact++; }
+    return { total: total, exact: exact };
+  }
+  // 缓存白珠（RGB≈255,255,255），避免依赖 BEADS[0]
+  var WHITE_BEAD = (function () {
+    var best = BEADS[0], bestD = Infinity;
+    for (var i = 0; i < BEADS.length; i++) {
+      var c = BEADS[i];
+      var d = (c.r - 255) * (c.r - 255) + (c.g - 255) * (c.g - 255) + (c.b - 255) * (c.b - 255);
+      if (d < bestD) { bestD = d; best = c; }
+    }
+    return best;
+  })();
 
   /* ---------- DOM ---------- */
   var dropZone = $("dropZone"), fileInput = $("fileInput");
@@ -34,6 +80,7 @@
   var statsSummary = $("statsSummary");
   var perPack = $("perPack"), price = $("price"), shopSummary = $("shopSummary");
   var colorList = $("colorList");
+  var paletteBrandSel = $("paletteBrand"), paletteHintEl = $("paletteHint");
 
   /* ---------- 状态 ---------- */
   var currentImage = null;
@@ -213,10 +260,14 @@
       var e = invSet[c.id] || { have: false, qty: 0 };
       var row = document.createElement("div"); row.className = "inv-row";
       var sw = "rgb(" + c.r + "," + c.g + "," + c.b + ")";
+      var brandId = getBrandId(c);
+      var brandName = getBrandName(c);
+      var brandInfo = getBrandInfo(c);
+      var fallbackTag = brandInfo.fallback ? ' <span style="font-size:11px;padding:1px 4px;background:#fff3e0;color:#e65100;border-radius:3px;">近似</span>' : "";
       row.innerHTML =
         '<input type="checkbox" class="inv-cb"' + (e.have ? " checked" : "") + " />" +
         '<span class="color-swatch inv-sw" style="background:' + sw + '"></span>' +
-        '<span class="inv-name">' + c.name + ' <em>' + c.id + "</em></span>" +
+        '<span class="inv-name">' + brandName + fallbackTag + ' <em>' + brandId + "</em></span>" +
         '<label class="inv-qty">库存<input type="number" min="0" value="' + (e.qty || 0) + '" /></label>';
       var cb = row.querySelector(".inv-cb");
       var qty = row.querySelector(".inv-qty input");
@@ -253,10 +304,14 @@
       var on = !!maskSet[c.id];
       var row = document.createElement("div"); row.className = "inv-row";
       var sw = "rgb(" + c.r + "," + c.g + "," + c.b + ")";
+      var brandId = getBrandId(c);
+      var brandName = getBrandName(c);
+      var brandInfo = getBrandInfo(c);
+      var fallbackTag = brandInfo.fallback ? ' <span style="font-size:11px;padding:1px 4px;background:#fff3e0;color:#e65100;border-radius:3px;">近似</span>' : "";
       row.innerHTML =
         '<input type="checkbox" class="inv-cb"' + (on ? " checked" : "") + " />" +
         '<span class="color-swatch inv-sw" style="background:' + sw + '"></span>' +
-        '<span class="inv-name">' + c.name + ' <em>' + c.id + "</em></span>";
+        '<span class="inv-name">' + brandName + fallbackTag + ' <em>' + brandId + "</em></span>";
       var cb = row.querySelector(".inv-cb");
       cb.addEventListener("change", function () {
         maskSet[c.id] = cb.checked; saveMask(); updateMaskSummary();
@@ -291,7 +346,7 @@
         if (a < alphaThreshold) { row.push(null); continue; }
         if (mode === "trans" && isLightBg(r, g, b)) { row.push(null); continue; }
         if (mode === "white" && isLightBg(r, g, b)) {
-          var whiteBead = BEADS[0];
+          var whiteBead = WHITE_BEAD || BEADS[0];
           row.push({ bead: whiteBead, r: 255, g: 255, b: 255, dist: 0 }); continue;
         }
         var m = matchColor(r, g, b, allowIds, maskIds);
@@ -432,7 +487,7 @@
           ctx.fillStyle = contrastColor(c.r, c.g, c.b);
           ctx.font = Math.floor(cell * 0.24) + "px sans-serif";
           ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-          ctx.fillText(c.id, px + cell / 2, py + cell - 2);
+          ctx.fillText(getBrandId(c), px + cell / 2, py + cell - 2);
         }
         // 进度打卡遮罩
         if (placed && placed[gy][gx]) {
@@ -563,11 +618,15 @@
       var div = document.createElement("div");
       div.className = "legend-item";
       var sw = "rgb(" + b.r + "," + b.g + "," + b.b + ")";
+      var brandId = getBrandId(b);
+      var brandName = getBrandName(b);
+      var brandInfo = getBrandInfo(b);
+      var fallbackTag = brandInfo.fallback ? ' <span class="tag-warn" style="font-size:11px;padding:1px 4px;background:#fff3e0;color:#e65100;border-radius:3px;">近似</span>' : "";
       div.innerHTML =
         '<span class="legend-num">' + it.num + '</span>' +
         '<span class="color-swatch" style="background:' + sw + '"></span>' +
-        '<span class="legend-name">' + b.name + '</span>' +
-        '<span class="legend-cid">色号 ' + b.id + '</span>';
+        '<span class="legend-name">' + brandName + fallbackTag + '</span>' +
+        '<span class="legend-cid">色号 ' + brandId + '</span>';
       numberLegend.appendChild(div);
     });
   }
@@ -633,10 +692,14 @@
       var div = document.createElement("div");
       div.className = "color-item" + (short ? " short" : "");
       var sw = "rgb(" + b.r + "," + b.g + "," + b.b + ")";
+      var brandId = getBrandId(b);
+      var brandName = getBrandName(b);
+      var brandInfo = getBrandInfo(b);
+      var fallbackTag = brandInfo.fallback ? ' <span class="tag-warn" style="font-size:11px;padding:1px 4px;background:#fff3e0;color:#e65100;border-radius:3px;">近似</span>' : "";
       div.innerHTML =
         '<div class="color-swatch" style="background:' + sw + '"></div>' +
-        '<div class="color-info"><div class="name">' + b.name + (short ? ' <span class="tag-warn">缺货</span>' : "") + '</div>' +
-        '<div class="cid">色号 ' + b.id + ' · RGB(' + b.r + ',' + b.g + ',' + b.b + ')' +
+        '<div class="color-info"><div class="name">' + brandName + fallbackTag + (short ? ' <span class="tag-warn">缺货</span>' : "") + '</div>' +
+        '<div class="cid">色号 ' + brandId + ' · RGB(' + b.r + ',' + b.g + ',' + b.b + ')' +
         (invOn ? ' · 库存' + have : "") + '</div></div>' +
         '<div><div class="color-count">×' + it.n + '</div>' +
         '<div class="color-pct">' + pct + '%' + (short ? ' · 补' + restock : "") + '</div></div>';
@@ -733,7 +796,7 @@
           ctx.fillStyle = contrastColor(b.r, b.g, b.b);
           ctx.font = Math.floor(cell * 0.22) + "px sans-serif";
           ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-          ctx.fillText(b.id, px + cell/2, py + cell - 4);
+          ctx.fillText(getBrandId(b), px + cell/2, py + cell - 4);
         }
         // 进度打卡遮罩
         if (placed && placed[gy][gx]){
@@ -774,6 +837,9 @@
         var x = padX + col * legendColW + 10;
         var y = legendY + row * legendRowH;
         var b = it.bead;
+        var brandId = getBrandId(b);
+        var brandName = getBrandName(b);
+        var brandInfo = getBrandInfo(b);
         // 编号圆
         ctx.fillStyle = "rgb(" + b.r + "," + b.g + "," + b.b + ")";
         ctx.beginPath();
@@ -789,10 +855,10 @@
         ctx.fillStyle = "#222";
         ctx.font = "bold 18px sans-serif";
         ctx.textAlign = "left"; ctx.textBaseline = "top";
-        ctx.fillText(b.name, x + swatch + 12, y + 4);
+        ctx.fillText(brandName + (brandInfo.fallback ? " 近似" : ""), x + swatch + 12, y + 4);
         ctx.fillStyle = "#6b6a7d";
         ctx.font = "15px sans-serif";
-        ctx.fillText("色号 " + b.id + "  ×" + it.n + " 颗", x + swatch + 12, y + 24);
+        ctx.fillText("色号 " + brandId + "  ×" + it.n + " 颗", x + swatch + 12, y + 24);
       });
     }
 
@@ -837,7 +903,12 @@
     arr.sort(function (a, b) { return b.n - a.n; });
     var head = (useView ? "第" + (currentBoard + 1) + "/" + boards.length + "块 " : "") + "拼豆清单 " + lastResult.w + "×" + lastResult.h + "（共" + agg.total + "颗）";
     var lines = [head, "－－－－－－"];
-    arr.forEach(function (it) { lines.push(it.bead.id + " " + it.bead.name + " ×" + it.n); });
+    arr.forEach(function (it) {
+      var brandId = getBrandId(it.bead);
+      var brandName = getBrandName(it.bead);
+      var brandInfo = getBrandInfo(it.bead);
+      lines.push(brandId + " " + brandName + (brandInfo.fallback ? " (近似)" : "") + " ×" + it.n);
+    });
     var text = lines.join("\n");
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () { flash(copyListBtn, "✅ 已复制"); });
@@ -858,6 +929,36 @@
   // 初始化库存摘要
   updateInvSummary();
   updateMaskSummary();
+
+  /* ================= 色卡品牌切换 ================= */
+  function refreshPaletteHint() {
+    if (!paletteHintEl) return;
+    var brand = CURRENT_BRAND;
+    var info = paletteCoverage(brand);
+    var exact = info.exact, total = info.total;
+    var pct = total > 0 ? Math.round(exact / total * 100) : 0;
+    var label = (PALETTES[brand] && PALETTES[brand].label) || brand;
+    paletteHintEl.innerHTML = "当前色卡：<b>" + label + "</b>　精确匹配 <b>" + exact + "/" + total + "</b> 色（" + pct + "%），其余颜色使用相近色号对应";
+  }
+  if (paletteBrandSel) {
+    paletteBrandSel.addEventListener("change", function () {
+      CURRENT_BRAND = paletteBrandSel.value || "MARD";
+      refreshPaletteHint();
+      // 重新渲染所有涉及色号显示的部分
+      if (lastResult) {
+        colorNumbers = assignColorNumbers(lastResult.grid);
+        renderView();
+        renderNumberLegend();
+        renderStats();
+        renderInvPanel();
+        renderMaskPanel();
+      } else {
+        renderInvPanel();
+        renderMaskPanel();
+      }
+    });
+  }
+  refreshPaletteHint();
 
   /* ================= 创意工具箱 ================= */
   // 工具：hex 转 rgb；按 rgb 找拼豆格子
