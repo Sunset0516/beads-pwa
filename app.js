@@ -729,29 +729,81 @@
     }
     return { grid: grid, w: w, h: h, color: colorKey, name: pat.name };
   }
+  // AI 文生图：调用 Pollinations.ai 免费文生图，生成真实图片后自动导入并生成模板
+  function aiGenImage(prompt, styleKey, onOk, onErr) {
+    var styleWord = styleKey === "cartoon"
+      ? "cute cartoon illustration, flat shading, vibrant"
+      : (styleKey === "real"
+        ? "realistic photo, detailed, high quality"
+        : "pixel art style, flat colors, simple, clean");
+    var full = prompt + ", " + styleWord;
+    var seed = Math.floor(Math.random() * 1e9);
+    var url = "https://image.pollinations.ai/prompt/" + encodeURIComponent(full) +
+      "?width=512&height=512&nologo=true&seed=" + seed + "&referrer=sunset0516.github.io";
+    // 用 fetch + blob：blob 是同源，canvas 不会被污染，可正常读取像素
+    // Pollinations 偶发限流/403，自动重试提升成功率
+    function attempt(triesLeft) {
+      var ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+      var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 60000) : null;
+      fetch(url, { signal: ctrl ? ctrl.signal : undefined })
+        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.blob(); })
+        .then(function (blob) {
+          if (timer) clearTimeout(timer);
+          if (!blob || blob.size === 0) throw new Error("空响应");
+          var objUrl = URL.createObjectURL(blob);
+          var img = new Image();
+          img.onload = function () { onOk(img, objUrl); };
+          img.onerror = function () { onErr("图片解码失败"); };
+          img.src = objUrl;
+        })
+        .catch(function (e) {
+          if (timer) clearTimeout(timer);
+          if (triesLeft > 0) { setTimeout(function () { attempt(triesLeft - 1); }, 2500); }
+          else {
+            var msg = (e && e.name === "AbortError") ? "生成超时"
+              : "网络错误：" + (e && e.message ? e.message : "未知");
+            onErr(msg);
+          }
+        });
+    }
+    attempt(2);
+  }
+
   descGenBtn.addEventListener("click", function () {
     var desc = (descInput.value || "").trim();
     if (!desc) {
       descHint.hidden = false;
-      descHint.textContent = "请输入图案描述，或点击下方预设";
+      descHint.textContent = "请输入画面描述，或点击下方预设";
       return;
     }
-    var r = generateFromDesc(desc);
-    if (!r) {
-      descHint.hidden = false;
-      descHint.textContent = "未识别到图案，可尝试：心形/星形/花朵/笑脸/猫脸/圣诞树/雪花/鱼/蝴蝶";
-      return;
-    }
-    // 自动识别画面需要的尺寸，回填尺寸输入框
-    sizeW.value = r.w; sizeH.value = r.h; sizePreset.value = "0";
     descHint.hidden = false;
-    descHint.textContent = "已生成「" + r.name + "」，自动识别画面尺寸 " + r.w + " × " + r.h + "，主色 " + r.color;
-    var bsz = Math.max(0, parseInt(boardSizeEl.value, 10) || 0);
-    // 清空图片预览，避免与图片模式混淆
-    currentImage = null;
-    previewWrap.hidden = true; dropZone.style.display = "";
-    generateBtn.disabled = false;
-    applyResult(r.grid, r.w, r.h, bsz, 0);
+    descHint.textContent = "AI 正在生成图片，请稍候…（约 10–60 秒，请勿离开页面）";
+    descGenBtn.disabled = true;
+    aiGenImage(desc, descColor.value, function (img, objUrl) {
+      descGenBtn.disabled = false;
+      descHint.textContent = "图片生成完成，已自动导入并生成拼豆模板";
+      // 复用图片导入流程：设为当前图片并显示预览
+      currentImage = img;
+      previewImg.src = objUrl;
+      previewWrap.hidden = false;
+      dropZone.style.display = "none";
+      generateBtn.disabled = false;
+      // 自动识别画面尺寸：默认 32×32，可后续在"设置模板"里调整
+      sizeW.value = 32; sizeH.value = 32; sizePreset.value = "0";
+      var bsz = Math.max(0, parseInt(boardSizeEl.value, 10) || 0);
+      var aTh = parseInt(alphaTh.value, 10);
+      var mode = bgMode.value;
+      var allowIds = invEnable.checked ? invHaveIds() : null;
+      if (invEnable.checked && allowIds.length === 0) {
+        alert("已开启豆库模式，请先在「管理豆库」里勾选你拥有的颜色");
+        return;
+      }
+      var res = pixelize(img, 32, 32, aTh, mode, allowIds);
+      applyResult(res.grid, 32, 32, bsz, res.maxDist);
+    }, function (msg) {
+      descGenBtn.disabled = false;
+      descHint.textContent = "生成失败：" + msg + "。可重试或换一个描述";
+    });
   });
   // 预设图案按钮
   var presetChips = document.querySelectorAll(".preset-chip");
