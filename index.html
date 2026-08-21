@@ -50,6 +50,45 @@
       </div>
     </section>
 
+    <!-- 文字描述生成模板 -->
+    <section class="card">
+      <h2><span class="step-badge alt">★</span>文字描述生成模板</h2>
+      <p class="hint">输入图案描述，自动生成拼豆模板并识别画面需要的尺寸</p>
+      <label class="field">
+        <span>图案描述</span>
+        <textarea id="descInput" rows="2" placeholder="如：红色心形 / 笑脸 / 花朵 / 圣诞树 / 雪花 / 猫脸"></textarea>
+      </label>
+      <div class="preset-grid">
+        <button class="preset-chip" data-desc="心形">❤️ 心形</button>
+        <button class="preset-chip" data-desc="星形">⭐ 星形</button>
+        <button class="preset-chip" data-desc="花朵">🌸 花朵</button>
+        <button class="preset-chip" data-desc="笑脸">😊 笑脸</button>
+        <button class="preset-chip" data-desc="猫脸">🐱 猫脸</button>
+        <button class="preset-chip" data-desc="圣诞树">🎄 树</button>
+        <button class="preset-chip" data-desc="雪花">❄️ 雪花</button>
+        <button class="preset-chip" data-desc="爱心">💕 爱心</button>
+        <button class="preset-chip" data-desc="鱼">🐟 鱼</button>
+        <button class="preset-chip" data-desc="蝴蝶">🦋 蝴蝶</button>
+      </div>
+      <label class="field">
+        <span>主色调（可省略，自动从描述识别）</span>
+        <select id="descColor">
+          <option value="auto">自动识别</option>
+          <option value="red">红色</option>
+          <option value="pink">粉色</option>
+          <option value="orange">橙色</option>
+          <option value="yellow">黄色</option>
+          <option value="green">绿色</option>
+          <option value="blue">蓝色</option>
+          <option value="purple">紫色</option>
+          <option value="black">黑色</option>
+          <option value="white">白色</option>
+        </select>
+      </label>
+      <button id="descGenBtn" class="btn-primary">🎨 生成模板</button>
+      <p id="descHint" class="hint" hidden></p>
+    </section>
+
     <!-- 第二步：设置模板 -->
     <section class="card">
       <h2><span class="step-badge">2</span>设置模板</h2>
@@ -98,6 +137,11 @@
       <div class="switch-row">
         <span>显示色号标签</span>
         <input type="checkbox" id="showLabels" />
+        <span class="switch"></span>
+      </div>
+      <div class="switch-row">
+        <span>显示颜色编号（1/2/3…）</span>
+        <input type="checkbox" id="showNumbers" checked />
         <span class="switch"></span>
       </div>
 
@@ -166,6 +210,10 @@
         <canvas id="resultCanvas"></canvas>
       </div>
       <p id="checkHint" class="hint" hidden>打卡模式：点击格子标记已放置的豆子</p>
+
+      <!-- 颜色编号对照表 -->
+      <h3>颜色编号对照</h3>
+      <div id="numberLegend" class="number-legend"></div>
 
       <h3>颜色用量清单</h3>
       <div id="statsSummary" class="stats-summary"></div>
