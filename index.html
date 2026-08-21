@@ -158,6 +158,19 @@
     <!-- 第二步：设置模板 -->
     <section class="card">
       <h2><span class="step-badge">2</span>设置模板</h2>
+
+      <label class="field">
+        <span>色卡品牌（选择后颜色编号将使用对应品牌编号）</span>
+        <select id="paletteBrand">
+          <option value="MARD" selected>MARD 官方色卡（306色，最精确）</option>
+          <option value="COCO">COCO 拼豆色卡（A系完整+其余扩展）</option>
+          <option value="漫漫">漫漫拼豆色卡（A系完整+其余扩展）</option>
+          <option value="盼盼">盼盼拼豆色卡（A系完整+其余扩展）</option>
+          <option value="咪小窝">咪小窝拼豆色卡（A系完整+其余扩展）</option>
+        </select>
+        <div id="paletteHint" class="hint"></div>
+      </label>
+
       <label class="field">
         <span>模板尺寸（宽 × 高，即拼豆板行列数）</span>
         <div class="size-row">
