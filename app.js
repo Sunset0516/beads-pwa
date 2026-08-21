@@ -16,10 +16,12 @@
   var showGrid = $("showGrid"), showLabels = $("showLabels"), showNumbers = $("showNumbers");
   var invEnable = $("invEnable"), invEditBtn = $("invEditBtn"), invPanel = $("invPanel");
   var invList = $("invList"), invAllBtn = $("invAllBtn"), invNoneBtn = $("invNoneBtn"), invSummary = $("invSummary");
+  var maskEnable = $("maskEnable"), maskEditBtn = $("maskEditBtn"), maskPanel = $("maskPanel");
+  var maskList = $("maskList"), maskAllBtn = $("maskAllBtn"), maskNoneBtn = $("maskNoneBtn"), maskSummary = $("maskSummary");
   var generateBtn = $("generateBtn");
-  var mandalaAxis = $("mandalaAxis"), mandalaTheme = $("mandalaTheme"), mandalaSize = $("mandalaSize"), mandalaBtn = $("mandalaBtn");
-  var textInput = $("textInput"), textColor = $("textColor"), textBtn = $("textBtn");
-  var gradC1 = $("gradC1"), gradC2 = $("gradC2"), gradN = $("gradN"), gradBtn = $("gradBtn");
+  var mandalaAxis = $("mandalaAxis"), mandalaTheme = $("mandalaTheme"), mandalaSize = $("mandalaSize"), mandalaBtn = $("mandalaBtn"), mandalaUseTpl = $("mandalaUseTpl");
+  var textInput = $("textInput"), textColor = $("textColor"), textBtn = $("textBtn"), textBgMode = $("textBgMode"), textBg1 = $("textBg1"), textBg2 = $("textBg2"), textBgSolid = $("textBgSolid"), textUseTpl = $("textUseTpl");
+  var gradC1 = $("gradC1"), gradC2 = $("gradC2"), gradN = $("gradN"), gradBtn = $("gradBtn"), gradShape = $("gradShape"), gradUseTpl = $("gradUseTpl");
   var calcSpec = $("calcSpec"), calcBoard = $("calcBoard"), calcBtn = $("calcBtn"), calcOut = $("calcOut");
   var numberLegend = $("numberLegend");
   var resultCard = $("resultCard"), resultCanvas = $("resultCanvas");
@@ -59,17 +61,31 @@
     return ids;
   }
 
+  /* ---------- 屏蔽颜色数据 ---------- */
+  var maskKey = "beads-mask-v1";
+  var maskSet = loadMask();      // { id: true }
+  function loadMask() {
+    try { return JSON.parse(localStorage.getItem(maskKey)) || {}; } catch (e) { return {}; }
+  }
+  function saveMask() { try { localStorage.setItem(maskKey, JSON.stringify(maskSet)); } catch (e) {} }
+  function maskHaveIds() {
+    var ids = [];
+    BEADS.forEach(function (c) { if (maskSet[c.id]) ids.push(c.id); });
+    return ids;
+  }
+
   /* ---------- 颜色距离 ---------- */
   function colorDist(r1, g1, b1, r2, g2, b2) {
     var rm = (r1 + r2) / 2;
     var dr = r1 - r2, dg = g1 - g2, db = b1 - b2;
     return Math.sqrt((2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db);
   }
-  function matchColor(r, g, b, allowIds) {
+  function matchColor(r, g, b, allowIds, maskIds) {
     var best = null, bestD = Infinity;
     for (var i = 0; i < BEADS.length; i++) {
       var c = BEADS[i];
       if (allowIds && allowIds.indexOf(c.id) === -1) continue;
+      if (maskIds && maskIds.indexOf(c.id) !== -1) continue;
       var d = colorDist(r, g, b, c.r, c.g, c.b);
       if (d < bestD) { bestD = d; best = c; }
     }
@@ -221,8 +237,41 @@
     invSummary.textContent = n > 0 ? "已拥有 " + n + " 种颜色" : "未选择任何颜色";
   }
 
+  /* ================= 屏蔽颜色面板 ================= */
+  maskEditBtn.addEventListener("click", function () { maskPanel.hidden = !maskPanel.hidden; if (!maskPanel.hidden) renderMaskPanel(); });
+  maskAllBtn.addEventListener("click", function () {
+    BEADS.forEach(function (c) { maskSet[c.id] = true; });
+    saveMask(); renderMaskPanel();
+  });
+  maskNoneBtn.addEventListener("click", function () {
+    Object.keys(maskSet).forEach(function (k) { maskSet[k] = false; });
+    saveMask(); renderMaskPanel();
+  });
+  function renderMaskPanel() {
+    maskList.innerHTML = "";
+    BEADS.forEach(function (c) {
+      var on = !!maskSet[c.id];
+      var row = document.createElement("div"); row.className = "inv-row";
+      var sw = "rgb(" + c.r + "," + c.g + "," + c.b + ")";
+      row.innerHTML =
+        '<input type="checkbox" class="inv-cb"' + (on ? " checked" : "") + " />" +
+        '<span class="color-swatch inv-sw" style="background:' + sw + '"></span>' +
+        '<span class="inv-name">' + c.name + ' <em>' + c.id + "</em></span>";
+      var cb = row.querySelector(".inv-cb");
+      cb.addEventListener("change", function () {
+        maskSet[c.id] = cb.checked; saveMask(); updateMaskSummary();
+      });
+      maskList.appendChild(row);
+    });
+    updateMaskSummary();
+  }
+  function updateMaskSummary() {
+    var n = maskHaveIds().length;
+    maskSummary.textContent = n > 0 ? "已屏蔽 " + n + " 种颜色" : "未屏蔽任何颜色";
+  }
+
   /* ================= 像素化 ================= */
-  function pixelize(img, w, h, alphaThreshold, mode, allowIds) {
+  function pixelize(img, w, h, alphaThreshold, mode, allowIds, maskIds) {
     var tmp = document.createElement("canvas");
     tmp.width = w; tmp.height = h;
     var ctx = tmp.getContext("2d");
@@ -245,7 +294,7 @@
           var whiteBead = BEADS[0];
           row.push({ bead: whiteBead, r: 255, g: 255, b: 255, dist: 0 }); continue;
         }
-        var m = matchColor(r, g, b, allowIds);
+        var m = matchColor(r, g, b, allowIds, maskIds);
         if (!m.bead) { row.push(null); continue; }
         if (m.dist > maxDist) maxDist = m.dist;
         row.push({ bead: m.bead, r: r, g: g, b: b, dist: m.dist });
@@ -277,7 +326,8 @@
     if (invEnable.checked && allowIds.length === 0) {
       alert("已开启豆库模式，请先在「管理豆库」里勾选你拥有的颜色"); return;
     }
-    var res = pixelize(currentImage, w, h, aTh, mode, allowIds);
+    var maskIds = maskEnable.checked ? maskHaveIds() : null;
+    var res = pixelize(currentImage, w, h, aTh, mode, allowIds, maskIds);
     applyResult(res.grid, w, h, bsz, res.maxDist);
   });
 
@@ -626,6 +676,7 @@
 
   // 初始化库存摘要
   updateInvSummary();
+  updateMaskSummary();
 
   /* ================= 创意工具箱 ================= */
   // 工具：hex 转 rgb；按 rgb 找拼豆格子
@@ -705,11 +756,31 @@
     '9':["01110","10001","10001","01111","00001","00001","01110"],
     ' ':["00000","00000","00000","00000","00000","00000","00000"]
   };
-  function genText(s, rgb){
+  function genText(s, rgb, bgMode, bg1, bg2){
     s = s.toUpperCase();
     var cw=5, ch=7, gap=1;
     var totalW = s.length*(cw+gap) - (s.length>0?gap:0);
+    if (totalW < 1) totalW = 1;
     var grid = []; for (var y=0;y<ch;y++) grid.push(new Array(totalW).fill(null));
+    // 先填背景
+    if (bgMode !== "none"){
+      for (var y=0;y<ch;y++){
+        for (var x=0;x<totalW;x++){
+          var bc;
+          if (bgMode === "solid"){
+            bc = bg1;
+          } else { // grad（水平渐变）
+            var t = totalW<=1?0:x/(totalW-1);
+            var br = Math.round(bg1[0]+(bg2[0]-bg1[0])*t);
+            var bg = Math.round(bg1[1]+(bg2[1]-bg1[1])*t);
+            var bb = Math.round(bg1[2]+(bg2[2]-bg1[2])*t);
+            bc = [br,bg,bb];
+          }
+          grid[y][x] = cellOf(bc);
+        }
+      }
+    }
+    // 再叠文字
     for (var i=0;i<s.length;i++){
       var g = FONT5x7[s.charAt(i)] || FONT5x7[' '];
       for (var r=0;r<7;r++){
@@ -723,17 +794,46 @@
     return { grid: grid, w: totalW, h: ch };
   }
 
-  // 渐变色阶（水平 1 行 N 列）
-  function genGradient(c1, c2, n){
-    var row = [];
-    for (var i=0;i<n;i++){
-      var t = n===1?0:i/(n-1);
+  // 渐变色阶（多种形状）
+  function genGradient(c1, c2, n, shape){
+    n = Math.max(2, n);
+    shape = shape || "h";
+    function colorAt(t){
       var r = Math.round(c1[0]+(c2[0]-c1[0])*t);
       var g = Math.round(c1[1]+(c2[1]-c1[1])*t);
       var b = Math.round(c1[2]+(c2[2]-c1[2])*t);
-      row.push(cellOf([r,g,b]));
+      return cellOf([r,g,b]);
     }
-    return { grid: [row], w: n, h: 1 };
+    if (shape === "v"){
+      var gv = [];
+      for (var i=0;i<n;i++){ gv.push([colorAt(n===1?0:i/(n-1))]); }
+      return { grid: gv, w: 1, h: n };
+    }
+    if (shape === "h"){
+      var row = [];
+      for (var i=0;i<n;i++){ row.push(colorAt(n===1?0:i/(n-1))); }
+      return { grid: [row], w: n, h: 1 };
+    }
+    // d / block / circle：N×N 方阵
+    var G = []; for (var y=0;y<n;y++) G.push(new Array(n).fill(null));
+    var maxD = Math.sqrt(2)*((n-1)/2);
+    for (var y=0;y<n;y++){
+      for (var x=0;x<n;x++){
+        var t;
+        if (shape === "d"){
+          t = (n<=1)?0:(x+y)/(2*(n-1));
+        } else if (shape === "block"){
+          t = (n<=1)?0:x/(n-1);
+        } else { // circle
+          var dx = x-(n-1)/2, dy = y-(n-1)/2;
+          var dist = Math.sqrt(dx*dx+dy*dy);
+          t = maxD===0?0:dist/maxD;
+          if (t>1) t = 1;
+        }
+        G[y][x] = colorAt(t);
+      }
+    }
+    return { grid: G, w: n, h: n };
   }
 
   // 通用：把生成的 grid 应用为模板结果
@@ -750,8 +850,16 @@
   mandalaBtn.addEventListener("click", function(){
     var axis = parseInt(mandalaAxis.value,10)||6;
     var tk = mandalaTheme.value;
-    var size = parseInt(mandalaSize.value,10)||33;
+    var size;
+    if (mandalaUseTpl && mandalaUseTpl.checked){
+      var sw = clamp(parseInt(sizeW.value,10)||29, 2, 100);
+      var sh = clamp(parseInt(sizeH.value,10)||29, 2, 100);
+      size = Math.min(sw, sh);
+    } else {
+      size = parseInt(mandalaSize.value,10)||33;
+    }
     if (size % 2 === 0) size += 1;
+    if (size < 5) size = 5;
     var seed = Math.floor(Math.random()*1e9);
     var grid = genMandala(axis, tk, size, seed);
     applyGenerated(grid, size, size);
@@ -760,7 +868,35 @@
   textBtn.addEventListener("click", function(){
     var s = (textInput.value||"").toUpperCase().replace(/[^A-Z0-9 ]/g,"");
     if (!s.trim()){ alert("仅支持 A–Z、0–9 和空格，请重新输入"); return; }
-    var r = genText(s, hexToRgb(textColor.value || "#1a1a1a"));
+    var rgb = hexToRgb(textColor.value || "#1a1a1a");
+    var bgMode = textBgMode ? textBgMode.value : "none";
+    var bg1 = hexToRgb((textBgSolid && textBgSolid.value) || "#ffe9a8");
+    var bg2 = hexToRgb((textBg2 && textBg2.value) || "#ff8fab");
+    // 跟随模板尺寸：扩展字牌高度
+    var extraH = 0;
+    if (textUseTpl && textUseTpl.checked){
+      var sh = clamp(parseInt(sizeH.value,10)||7, 7, 100);
+      extraH = Math.max(0, sh - 7);
+    }
+    var r = genText(s, rgb, bgMode, bg1, bg2);
+    if (extraH > 0){
+      // 在字牌底部加空白行（保持背景）
+      for (var y=0;y<extraH;y++){
+        var row = new Array(r.w).fill(null);
+        if (bgMode !== "none"){
+          for (var x=0;x<r.w;x++){
+            var bc;
+            if (bgMode === "solid") bc = bg1;
+            else { var t = r.w<=1?0:x/(r.w-1);
+              bc = [Math.round(bg1[0]+(bg2[0]-bg1[0])*t), Math.round(bg1[1]+(bg2[1]-bg1[1])*t), Math.round(bg1[2]+(bg2[2]-bg1[2])*t)];
+            }
+            row[x] = cellOf(bc);
+          }
+        }
+        r.grid.push(row);
+      }
+      r.h = 7 + extraH;
+    }
     applyGenerated(r.grid, r.w, r.h);
   });
   // 渐变色阶按钮
@@ -768,37 +904,35 @@
     var c1 = hexToRgb(gradC1.value||"#ff3a3a");
     var c2 = hexToRgb(gradC2.value||"#3a6bff");
     var n = Math.max(2, Math.min(50, parseInt(gradN.value,10)||12));
-    var r = genGradient(c1, c2, n);
+    var shape = gradShape ? gradShape.value : "h";
+    if (gradUseTpl && gradUseTpl.checked){
+      var sw = clamp(parseInt(sizeW.value,10)||n, 2, 100);
+      var sh = clamp(parseInt(sizeH.value,10)||n, 2, 100);
+      // 根据形状决定用哪一边
+      if (shape === "h") n = sw;
+      else if (shape === "v") n = sh;
+      else { // 方阵：用较小值保证能放下
+        n = Math.min(sw, sh);
+      }
+      if (n < 2) n = 2;
+    }
+    var r = genGradient(c1, c2, n, shape);
     applyGenerated(r.grid, r.w, r.h);
   });
-  // 实物尺寸/费用计算器按钮
+  // 实物尺寸计算器按钮
   calcBtn.addEventListener("click", function(){
     var bead = parseFloat(calcSpec.value)||5;
-    var boardN = parseInt(calcBoard.value,10)||29;
-    var w = lastResult ? lastResult.w : boardN;
-    var h = lastResult ? lastResult.h : boardN;
-    var bsz = lastResult ? lastResult.boardSize : boardN;
-    var total = 0, colors = 0;
-    if (lastResult){
-      var agg = gatherCounts(false);
-      for (var id in agg.counts){ total += agg.counts[id].count; colors++; }
-    }
+    var w = lastResult ? lastResult.w : (parseInt(sizeW.value,10)||29);
+    var h = lastResult ? lastResult.h : (parseInt(sizeH.value,10)||29);
     var wcm = (w*bead/10).toFixed(1), hcm = (h*bead/10).toFixed(1);
-    var boardsW = bsz ? Math.ceil(w/bsz) : 1;
-    var boardsH = bsz ? Math.ceil(h/bsz) : 1;
-    var boardsNeeded = bsz ? boardsW*boardsH : 1;
-    var cost = (total*0.05).toFixed(2);
-    var secs = total*8;
-    var hh = Math.floor(secs/3600), mm = Math.floor((secs%3600)/60);
-    var timeStr = lastResult ? ((hh>0?hh+"小时":"") + mm + "分钟") : "先在上方生成模板后再算耗时";
+    var totalW = (w*bead/10).toFixed(1);
+    var totalH = (h*bead/10).toFixed(1);
     calcOut.hidden = false;
     calcOut.innerHTML =
+      "<div class='calc-row'><b>宽 × 高</b><span>" + w + " × " + h + " 豆</span></div>" +
+      "<div class='calc-row'><b>豆子规格</b><span>" + bead + " mm</span></div>" +
       "<div class='calc-row'><b>成品尺寸</b><span>" + wcm + " × " + hcm + " cm</span></div>" +
-      "<div class='calc-row'><b>需要板数</b><span>" + boardsNeeded + " 块</span></div>" +
-      "<div class='calc-row'><b>总豆数</b><span>" + (total||"—") + " 颗</span></div>" +
-      "<div class='calc-row'><b>颜色种类</b><span>" + (colors||"—") + " 种</span></div>" +
-      "<div class='calc-row'><b>预估费用</b><span>¥" + cost + "</span></div>" +
-      "<div class='calc-row'><b>预估耗时</b><span>" + timeStr + "</span></div>";
+      "<div class='calc-row'><b>对角线</b><span>" + (Math.sqrt(w*w+h*h)*bead/10).toFixed(1) + " cm</span></div>";
   });
 
   /* ================= Service Worker ================= */
