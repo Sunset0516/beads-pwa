@@ -1,5 +1,5 @@
-// 拼豆识别器 Service Worker - 离线缓存 v11（修正 MARD 色号去零、H2=纯白、H7=纯黑，与实际色卡编号一致）
-var CACHE = "beads-pwa-v11";
+// 拼豆识别器 Service Worker - 离线缓存 v12（修复 r:g:b 标签损坏语法 bug，确保 beads-colors.js 解析成功）
+var CACHE = "beads-pwa-v12";
 var ASSETS = [
   "./",
   "./index.html",
