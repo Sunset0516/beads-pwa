@@ -17,7 +17,10 @@
   var invEnable = $("invEnable"), invEditBtn = $("invEditBtn"), invPanel = $("invPanel");
   var invList = $("invList"), invAllBtn = $("invAllBtn"), invNoneBtn = $("invNoneBtn"), invSummary = $("invSummary");
   var generateBtn = $("generateBtn");
-  var descInput = $("descInput"), descColor = $("descColor"), descGenBtn = $("descGenBtn"), descHint = $("descHint");
+  var mandalaAxis = $("mandalaAxis"), mandalaTheme = $("mandalaTheme"), mandalaSize = $("mandalaSize"), mandalaBtn = $("mandalaBtn");
+  var textInput = $("textInput"), textColor = $("textColor"), textBtn = $("textBtn");
+  var gradC1 = $("gradC1"), gradC2 = $("gradC2"), gradN = $("gradN"), gradBtn = $("gradBtn");
+  var calcSpec = $("calcSpec"), calcBoard = $("calcBoard"), calcBtn = $("calcBtn"), calcOut = $("calcOut");
   var numberLegend = $("numberLegend");
   var resultCard = $("resultCard"), resultCanvas = $("resultCanvas");
   var downloadBtn = $("downloadBtn"), copyListBtn = $("copyListBtn");
@@ -624,195 +627,179 @@
   // 初始化库存摘要
   updateInvSummary();
 
-  /* ================= 文字描述生成模板 ================= */
-  // 主色候选（用户选/从描述识别）
-  var DESC_COLORS = {
-    red:[225,40,40], pink:[255,105,180], orange:[255,130,30],
-    yellow:[255,213,0], green:[80,180,80], blue:[60,130,230],
-    purple:[140,80,200], black:[25,25,30], white:[255,255,255]
+  /* ================= 创意工具箱 ================= */
+  // 工具：hex 转 rgb；按 rgb 找拼豆格子
+  function hexToRgb(h){ h=h.replace("#",""); return [parseInt(h.substr(0,2),16),parseInt(h.substr(2,2),16),parseInt(h.substr(4,2),16)]; }
+  function cellOf(rgb){ var m=matchColor(rgb[0],rgb[1],rgb[2],null); return {bead:m.bead,r:rgb[0],g:rgb[1],b:rgb[2],dist:m.dist}; }
+
+  // 配色主题（曼陀罗用）
+  var THEMES = {
+    rainbow:[[255,60,60],[255,140,40],[255,210,0],[80,180,80],[60,130,230],[140,80,200]],
+    ocean:[[30,70,150],[60,130,230],[120,200,255],[180,230,240],[255,255,255]],
+    warm:[[255,90,90],[255,130,40],[255,180,50],[255,210,0],[255,120,150]],
+    forest:[[50,110,50],[80,160,70],[130,190,90],[200,180,80],[110,150,60]],
+    mono:[[220,40,40],[185,30,35],[150,25,30],[115,20,25],[80,15,20]]
   };
-  // 固定装饰色
-  var FIXED_COLORS = {
-    'Y':[255,213,0], 'K':[25,25,30], 'P':[255,105,180], 'D':[95,60,35]
-  };
-  // 图案库（'X'=主色占位，其余为装饰色，'.'或空=无豆）
-  var PATTERNS = [
-    { name:"心形", rows:[
-      "..XX...XX..",".XXXXXXXXX.","XXXXXXXXXXX","XXXXXXXXXXX",
-      ".XXXXXXXXX.","..XXXXXXX..","...XXXXX...","....XXX....",".....X....."
-    ], w:11, h:9, def:"red" },
-    { name:"爱心", rows:[
-      "...XX...XX...",".XXXXXXXXXXX.","XXXXXXXXXXXXX","XXXXXXXXXXXXX",
-      ".XXXXXXXXXXX.","..XXXXXXXXX..","...XXXXXXX...","....XXXXX....",
-      ".....XXX.....","......X......","............."
-    ], w:13, h:11, def:"pink" },
-    { name:"星形", rows:[
-      ".....X.....","....XXX....","...XXXXX...","XXXXXXXXXXX",
-      ".XXXXXXXXX.","..XXXXXXX..","...XXXXX...","..XX...XX..",
-      ".XX.....XX.","XX.......XX","X.........X"
-    ], w:11, h:11, def:"yellow" },
-    { name:"花朵", rows:[
-      ".............",".............",".....XXX.....","...XXXXXXX...",
-      ".XXXXXXXXXXX.","XXXXXYYYXXXXX","XXXXXYYYXXXXX","XXXXXXXXXXXXX",
-      ".XXXXXXXXXXX.","...XXXXXXX...",".....XXX.....",".............","............."
-    ], w:13, h:13, def:"pink" },
-    { name:"笑脸", rows:[
-      "....XXXXX....","..XXXXXXXXX..",".XXXXXXXXXXX.","XXXXXXXXXXXXX",
-      "XXXXKXXXKXXXX","XXXXKXXXKXXXX","XXXXXXXXXXXXX","XXXK.....KXXX",
-      "XXXXKKKKKXXXX",".XXXXXXXXXXX.","..XXXXXXXXX..","...XXXXXXX...",".....XXX....."
-    ], w:13, h:13, def:"yellow" },
-    { name:"猫脸", rows:[
-      "XX.........XX","XXX.......XXX","XXXXXXXXXXXXX","XXXXXXXXXXXXX",
-      "XXXXKKXKKXXXX","XXXXXXXXXXXXX","XXXXXXPXXXXXX","XXXXKKKKKXXXX",
-      "XXXXXXXXXXXXX","XXXXXXXXXXXXX","XXXXXXXXXXXXX",".XXXXXXXXXXX.","..XXXXXXXXX.."
-    ], w:13, h:13, def:"orange" },
-    { name:"圣诞树", rows:[
-      ".....X.....","....XXX....","...XXXXX...","..XXXXXXX..",
-      ".XXXXXXXXX.","XXXXXXXXXXX",".XXXXXXXXX.","XXXXXXXXXXX",
-      "...DDDDD...","...DDDDD...","...........","..........."
-    ], w:11, h:12, def:"green" },
-    { name:"雪花", rows:[
-      "......X......",".....XXX.....","....XXXXX....","...XXXXXXX...",
-      "..XXXXXXXXX..",".XXXXXXXXXXX.","XXXXXXXXXXXXX",".XXXXXXXXXXX.",
-      "..XXXXXXXXX..","...XXXXXXX...","....XXXXX....",".....XXX.....","......X......"
-    ], w:13, h:13, def:"blue" },
-    { name:"鱼", rows:[
-      "....XXXXX....","..XXXXXXXXX..",".XXXXXXXXXXX.","XXXXXXXXXXXK.",
-      ".XXXXXXXXXXX.","..XXXXXXXXX..","....XXXXX....","............."
-    ], w:13, h:8, def:"orange" },
-    { name:"蝴蝶", rows:[
-      ".............","XX....Y....XX","XXXX..Y..XXXX",".XXXX.Y.XXXX.",
-      "..XXX.Y.XXX..",".XXXX.Y.XXXX.","XXXX..Y..XXXX","XX....Y....XX","............."
-    ], w:13, h:9, def:"pink" }
-  ];
-  // 关键词 -> 图案索引（多字优先）
-  var KW_MAP = [
-    ["蝴蝶",9],["爱心",1],["心",0],["星",2],["花",3],
-    ["笑",4],["猫",5],["树",6],["雪",7],["鱼",8]
-  ];
-  function matchPattern(desc) {
-    for (var i=0;i<KW_MAP.length;i++){
-      if (desc.indexOf(KW_MAP[i][0]) >= 0) return PATTERNS[KW_MAP[i][1]];
-    }
-    return null;
-  }
-  function parseColorWord(desc) {
-    if (/红/.test(desc)) return "red";
-    if (/粉/.test(desc)) return "pink";
-    if (/橙/.test(desc)) return "orange";
-    if (/黄/.test(desc)) return "yellow";
-    if (/绿/.test(desc)) return "green";
-    if (/蓝/.test(desc)) return "blue";
-    if (/紫/.test(desc)) return "purple";
-    if (/黑/.test(desc)) return "black";
-    if (/白/.test(desc)) return "white";
-    return null;
-  }
-  function generateFromDesc(desc) {
-    var pat = matchPattern(desc);
-    if (!pat) return null;
-    var colorKey = descColor.value;
-    if (colorKey === "auto" || !colorKey) colorKey = parseColorWord(desc) || pat.def;
-    var mainRgb = DESC_COLORS[colorKey] || DESC_COLORS[pat.def];
-    var w = pat.w, h = pat.h, grid = [];
-    for (var y=0;y<h;y++){
-      var row = [], line = pat.rows[y] || "";
-      for (var x=0;x<w;x++){
-        var ch = line.charAt(x);
-        if (ch === "" || ch === "." || ch === " ") { row.push(null); continue; }
-        var rgb = (ch === "X") ? mainRgb : FIXED_COLORS[ch];
-        if (!rgb) { row.push(null); continue; }
-        var m = matchColor(rgb[0], rgb[1], rgb[2], null);
-        row.push({ bead: m.bead, r: rgb[0], g: rgb[1], b: rgb[2], dist: m.dist });
+  // 对称曼陀罗：按对称轴旋转复制，同角度同距离用同色，保证旋转对称
+  function genMandala(axis, themeKey, size, seed){
+    var theme = THEMES[themeKey] || THEMES.rainbow;
+    var c = (size-1)/2;
+    var grid = []; for (var y=0;y<size;y++) grid.push(new Array(size).fill(null));
+    function h(n){ n=(Math.imul(n,2654435761)+seed*97)>>>0; n=(n^(n>>>15))>>>0; n=(Math.imul(n,2246822519))>>>0; n=(n^(n>>>13))>>>0; return n/4294967296; }
+    var sw = Math.PI*2/axis;
+    for (var y=0;y<size;y++){
+      for (var x=0;x<size;x++){
+        var dx=x-c, dy=y-c, dist=Math.sqrt(dx*dx+dy*dy);
+        if (dist > c+0.5) continue;
+        var ang=Math.atan2(dy,dx);
+        var norm=(ang+Math.PI*2)%(Math.PI*2);
+        var sector=Math.floor(norm/sw);
+        var ang0=norm-sector*sw;
+        var aq=Math.floor(ang0/sw*6);
+        var dq=Math.floor(dist*2);
+        var ci=Math.floor(h(aq*100+dq)*theme.length);
+        if (ci>=theme.length) ci=theme.length-1;
+        grid[y][x]=cellOf(theme[ci]);
       }
-      grid.push(row);
     }
-    return { grid: grid, w: w, h: h, color: colorKey, name: pat.name };
-  }
-  // AI 文生图：调用 Pollinations.ai 免费文生图，生成真实图片后自动导入并生成模板
-  function aiGenImage(prompt, styleKey, onOk, onErr) {
-    var styleWord = styleKey === "cartoon"
-      ? "cute cartoon illustration, flat shading, vibrant"
-      : (styleKey === "real"
-        ? "realistic photo, detailed, high quality"
-        : "pixel art style, flat colors, simple, clean");
-    var full = prompt + ", " + styleWord;
-    var seed = Math.floor(Math.random() * 1e9);
-    var url = "https://image.pollinations.ai/prompt/" + encodeURIComponent(full) +
-      "?width=512&height=512&nologo=true&seed=" + seed + "&referrer=sunset0516.github.io";
-    // 用 fetch + blob：blob 是同源，canvas 不会被污染，可正常读取像素
-    // Pollinations 偶发限流/403，自动重试提升成功率
-    function attempt(triesLeft) {
-      var ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
-      var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 60000) : null;
-      fetch(url, { signal: ctrl ? ctrl.signal : undefined })
-        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.blob(); })
-        .then(function (blob) {
-          if (timer) clearTimeout(timer);
-          if (!blob || blob.size === 0) throw new Error("空响应");
-          var objUrl = URL.createObjectURL(blob);
-          var img = new Image();
-          img.onload = function () { onOk(img, objUrl); };
-          img.onerror = function () { onErr("图片解码失败"); };
-          img.src = objUrl;
-        })
-        .catch(function (e) {
-          if (timer) clearTimeout(timer);
-          if (triesLeft > 0) { setTimeout(function () { attempt(triesLeft - 1); }, 2500); }
-          else {
-            var msg = (e && e.name === "AbortError") ? "生成超时"
-              : "网络错误：" + (e && e.message ? e.message : "未知");
-            onErr(msg);
-          }
-        });
-    }
-    attempt(2);
+    return grid;
   }
 
-  descGenBtn.addEventListener("click", function () {
-    var desc = (descInput.value || "").trim();
-    if (!desc) {
-      descHint.hidden = false;
-      descHint.textContent = "请输入画面描述，或点击下方预设";
-      return;
-    }
-    descHint.hidden = false;
-    descHint.textContent = "AI 正在生成图片，请稍候…（约 10–60 秒，请勿离开页面）";
-    descGenBtn.disabled = true;
-    aiGenImage(desc, descColor.value, function (img, objUrl) {
-      descGenBtn.disabled = false;
-      descHint.textContent = "图片生成完成，已自动导入并生成拼豆模板";
-      // 复用图片导入流程：设为当前图片并显示预览
-      currentImage = img;
-      previewImg.src = objUrl;
-      previewWrap.hidden = false;
-      dropZone.style.display = "none";
-      generateBtn.disabled = false;
-      // 自动识别画面尺寸：默认 32×32，可后续在"设置模板"里调整
-      sizeW.value = 32; sizeH.value = 32; sizePreset.value = "0";
-      var bsz = Math.max(0, parseInt(boardSizeEl.value, 10) || 0);
-      var aTh = parseInt(alphaTh.value, 10);
-      var mode = bgMode.value;
-      var allowIds = invEnable.checked ? invHaveIds() : null;
-      if (invEnable.checked && allowIds.length === 0) {
-        alert("已开启豆库模式，请先在「管理豆库」里勾选你拥有的颜色");
-        return;
+  // 5×7 像素字体（A–Z 0–9 空格）
+  var FONT5x7 = {
+    'A':["01110","10001","10001","11111","10001","10001","10001"],
+    'B':["11110","10001","10001","11110","10001","10001","11110"],
+    'C':["01111","10000","10000","10000","10000","10000","01111"],
+    'D':["11110","10001","10001","10001","10001","10001","11110"],
+    'E':["11111","10000","10000","11110","10000","10000","11111"],
+    'F':["11111","10000","10000","11110","10000","10000","10000"],
+    'G':["01111","10000","10000","10111","10001","10001","01111"],
+    'H':["10001","10001","10001","11111","10001","10001","10001"],
+    'I':["01110","00100","00100","00100","00100","00100","01110"],
+    'J':["00111","00010","00010","00010","10010","10010","01100"],
+    'K':["10001","10010","10100","11000","10100","10010","10001"],
+    'L':["10000","10000","10000","10000","10000","10000","11111"],
+    'M':["10001","11011","10101","10001","10001","10001","10001"],
+    'N':["10001","11001","10101","10011","10001","10001","10001"],
+    'O':["01110","10001","10001","10001","10001","10001","01110"],
+    'P':["11110","10001","10001","11110","10000","10000","10000"],
+    'Q':["01110","10001","10001","10001","10101","10010","01101"],
+    'R':["11110","10001","10001","11110","10100","10010","10001"],
+    'S':["01111","10000","10000","01110","00001","00001","11110"],
+    'T':["11111","00100","00100","00100","00100","00100","00100"],
+    'U':["10001","10001","10001","10001","10001","10001","01110"],
+    'V':["10001","10001","10001","10001","10001","01010","00100"],
+    'W':["10001","10001","10001","10001","10101","11011","10001"],
+    'X':["10001","10001","01010","00100","01010","10001","10001"],
+    'Y':["10001","10001","01010","00100","00100","00100","00100"],
+    'Z':["11111","00001","00010","00100","01000","10000","11111"],
+    '0':["01110","10001","10011","10101","11001","10001","01110"],
+    '1':["00100","01100","00100","00100","00100","00100","01110"],
+    '2':["01110","10001","00001","00010","00100","01000","11111"],
+    '3':["01110","10001","00001","00110","00001","10001","01110"],
+    '4':["00010","00110","01010","10010","11111","00010","00010"],
+    '5':["11111","10000","11110","00001","00001","10001","01110"],
+    '6':["01110","10000","10000","11110","10001","10001","01110"],
+    '7':["11111","00001","00010","00100","01000","01000","01000"],
+    '8':["01110","10001","10001","01110","10001","10001","01110"],
+    '9':["01110","10001","10001","01111","00001","00001","01110"],
+    ' ':["00000","00000","00000","00000","00000","00000","00000"]
+  };
+  function genText(s, rgb){
+    s = s.toUpperCase();
+    var cw=5, ch=7, gap=1;
+    var totalW = s.length*(cw+gap) - (s.length>0?gap:0);
+    var grid = []; for (var y=0;y<ch;y++) grid.push(new Array(totalW).fill(null));
+    for (var i=0;i<s.length;i++){
+      var g = FONT5x7[s.charAt(i)] || FONT5x7[' '];
+      for (var r=0;r<7;r++){
+        for (var c=0;c<5;c++){
+          if (g[r].charAt(c) === "1"){
+            grid[r][i*(cw+gap)+c] = cellOf(rgb);
+          }
+        }
       }
-      var res = pixelize(img, 32, 32, aTh, mode, allowIds);
-      applyResult(res.grid, 32, 32, bsz, res.maxDist);
-    }, function (msg) {
-      descGenBtn.disabled = false;
-      descHint.textContent = "生成失败：" + msg + "。可重试或换一个描述";
-    });
-  });
-  // 预设图案按钮
-  var presetChips = document.querySelectorAll(".preset-chip");
-  for (var pi=0; pi<presetChips.length; pi++) {
-    presetChips[pi].addEventListener("click", function () {
-      descInput.value = this.getAttribute("data-desc");
-      descGenBtn.click();
-    });
+    }
+    return { grid: grid, w: totalW, h: ch };
   }
+
+  // 渐变色阶（水平 1 行 N 列）
+  function genGradient(c1, c2, n){
+    var row = [];
+    for (var i=0;i<n;i++){
+      var t = n===1?0:i/(n-1);
+      var r = Math.round(c1[0]+(c2[0]-c1[0])*t);
+      var g = Math.round(c1[1]+(c2[1]-c1[1])*t);
+      var b = Math.round(c1[2]+(c2[2]-c1[2])*t);
+      row.push(cellOf([r,g,b]));
+    }
+    return { grid: [row], w: n, h: 1 };
+  }
+
+  // 通用：把生成的 grid 应用为模板结果
+  function applyGenerated(grid, w, h){
+    currentImage = null;
+    previewWrap.hidden = true; dropZone.style.display = "";
+    generateBtn.disabled = false;
+    sizeW.value = w; sizeH.value = h; sizePreset.value = "0";
+    var bsz = Math.max(0, parseInt(boardSizeEl.value, 10) || 0);
+    applyResult(grid, w, h, bsz, 0);
+  }
+
+  // 对称曼陀罗按钮
+  mandalaBtn.addEventListener("click", function(){
+    var axis = parseInt(mandalaAxis.value,10)||6;
+    var tk = mandalaTheme.value;
+    var size = parseInt(mandalaSize.value,10)||33;
+    if (size % 2 === 0) size += 1;
+    var seed = Math.floor(Math.random()*1e9);
+    var grid = genMandala(axis, tk, size, seed);
+    applyGenerated(grid, size, size);
+  });
+  // 像素文字按钮
+  textBtn.addEventListener("click", function(){
+    var s = (textInput.value||"").toUpperCase().replace(/[^A-Z0-9 ]/g,"");
+    if (!s.trim()){ alert("仅支持 A–Z、0–9 和空格，请重新输入"); return; }
+    var r = genText(s, hexToRgb(textColor.value || "#1a1a1a"));
+    applyGenerated(r.grid, r.w, r.h);
+  });
+  // 渐变色阶按钮
+  gradBtn.addEventListener("click", function(){
+    var c1 = hexToRgb(gradC1.value||"#ff3a3a");
+    var c2 = hexToRgb(gradC2.value||"#3a6bff");
+    var n = Math.max(2, Math.min(50, parseInt(gradN.value,10)||12));
+    var r = genGradient(c1, c2, n);
+    applyGenerated(r.grid, r.w, r.h);
+  });
+  // 实物尺寸/费用计算器按钮
+  calcBtn.addEventListener("click", function(){
+    var bead = parseFloat(calcSpec.value)||5;
+    var boardN = parseInt(calcBoard.value,10)||29;
+    var w = lastResult ? lastResult.w : boardN;
+    var h = lastResult ? lastResult.h : boardN;
+    var bsz = lastResult ? lastResult.boardSize : boardN;
+    var total = 0, colors = 0;
+    if (lastResult){
+      var agg = gatherCounts(false);
+      for (var id in agg.counts){ total += agg.counts[id].count; colors++; }
+    }
+    var wcm = (w*bead/10).toFixed(1), hcm = (h*bead/10).toFixed(1);
+    var boardsW = bsz ? Math.ceil(w/bsz) : 1;
+    var boardsH = bsz ? Math.ceil(h/bsz) : 1;
+    var boardsNeeded = bsz ? boardsW*boardsH : 1;
+    var cost = (total*0.05).toFixed(2);
+    var secs = total*8;
+    var hh = Math.floor(secs/3600), mm = Math.floor((secs%3600)/60);
+    var timeStr = lastResult ? ((hh>0?hh+"小时":"") + mm + "分钟") : "先在上方生成模板后再算耗时";
+    calcOut.hidden = false;
+    calcOut.innerHTML =
+      "<div class='calc-row'><b>成品尺寸</b><span>" + wcm + " × " + hcm + " cm</span></div>" +
+      "<div class='calc-row'><b>需要板数</b><span>" + boardsNeeded + " 块</span></div>" +
+      "<div class='calc-row'><b>总豆数</b><span>" + (total||"—") + " 颗</span></div>" +
+      "<div class='calc-row'><b>颜色种类</b><span>" + (colors||"—") + " 种</span></div>" +
+      "<div class='calc-row'><b>预估费用</b><span>¥" + cost + "</span></div>" +
+      "<div class='calc-row'><b>预估耗时</b><span>" + timeStr + "</span></div>";
+  });
 
   /* ================= Service Worker ================= */
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
