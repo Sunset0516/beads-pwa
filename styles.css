@@ -285,6 +285,22 @@ body{
 .btn-mini:hover{background:#f3f0ff}
 .btn-sm{padding:9px 14px;font-size:14px}
 
+/* 打卡模式提示行 + 图标按钮 */
+.check-hint-row{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin:8px 0 0;padding:10px 14px;border-radius:12px;
+  background:linear-gradient(180deg,#fff7e6,#fff1d6);
+  border:1.5px solid #ffd591;
+}
+.check-hint-row > span{flex:1;font-size:13px;color:#874d00;font-weight:600}
+.btn-icon{
+  padding:8px 14px;border:1.5px solid #ff7a45;border-radius:10px;
+  background:#fff;color:#ff7a45;font-size:13px;font-weight:700;cursor:pointer;
+  transition:.15s;white-space:nowrap;
+}
+.btn-icon:active{transform:translateY(1px)}
+.btn-icon:hover{background:#fff5f0}
+
 .import-tools{display:flex;gap:8px;margin-bottom:12px}
 .import-tools .btn-mini{flex:1}
 
