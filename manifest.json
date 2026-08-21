@@ -1,0 +1,20 @@
+{
+  "name": "拼豆识别器",
+  "short_name": "拼豆识别",
+  "description": "导入图片自动生成拼豆模板，识别颜色并匹配拼豆豆子颜色",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f6ff",
+  "theme_color": "#7c5cff",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
