@@ -371,19 +371,36 @@
 
   /* ================= 生成模板 ================= */
   generateBtn.addEventListener("click", function () {
-    if (!currentImage) return;
-    var w = clamp(parseInt(sizeW.value, 10) || 29, 2, 100);
-    var h = clamp(parseInt(sizeH.value, 10) || 29, 2, 100);
-    var bsz = Math.max(0, parseInt(boardSizeEl.value, 10) || 0);
-    var aTh = parseInt(alphaTh.value, 10);
-    var mode = bgMode.value;
-    var allowIds = invEnable.checked ? invHaveIds() : null;
-    if (invEnable.checked && allowIds.length === 0) {
-      alert("已开启豆库模式，请先在「管理豆库」里勾选你拥有的颜色"); return;
+    if (!currentImage) {
+      // Fallback: 如果 previewImg 已加载完成，允许直接使用（兼容手动设置 src / 粘贴后点击等场景）
+      if (previewImg && previewImg.complete && previewImg.naturalWidth > 0) {
+        var tmpImg = new Image();
+        tmpImg.onload = function () {
+          currentImage = tmpImg;
+          runGenerate();
+        };
+        tmpImg.onerror = function () { alert("图片加载失败，请重新上传或粘贴图片"); };
+        tmpImg.src = previewImg.src;
+        return;
+      }
+      alert("请先上传或粘贴一张图片，再点击生成拼豆模板");
+      return;
     }
-    var maskIds = maskEnable.checked ? maskHaveIds() : null;
-    var res = pixelize(currentImage, w, h, aTh, mode, allowIds, maskIds);
-    applyResult(res.grid, w, h, bsz, res.maxDist);
+    runGenerate();
+    function runGenerate() {
+      var w = clamp(parseInt(sizeW.value, 10) || 29, 2, 100);
+      var h = clamp(parseInt(sizeH.value, 10) || 29, 2, 100);
+      var bsz = Math.max(0, parseInt(boardSizeEl.value, 10) || 0);
+      var aTh = parseInt(alphaTh.value, 10);
+      var mode = bgMode.value;
+      var allowIds = invEnable.checked ? invHaveIds() : null;
+      if (invEnable.checked && allowIds.length === 0) {
+        alert("已开启豆库模式，请先在「管理豆库」里勾选你拥有的颜色"); return;
+      }
+      var maskIds = maskEnable.checked ? maskHaveIds() : null;
+      var res = pixelize(currentImage, w, h, aTh, mode, allowIds, maskIds);
+      applyResult(res.grid, w, h, bsz, res.maxDist);
+    }
   });
 
   /* 生成结果统一应用：分板/编号/进度/渲染 */
