@@ -110,6 +110,50 @@ body{
 .size-row .x{color:var(--muted);font-weight:700}
 
 .field input[type="range"]{width:100%;accent-color:var(--c6)}
+.field textarea{
+  width:100%;padding:11px 12px;border:1.5px solid var(--line);
+  border-radius:12px;font-size:15px;background:#fff;color:var(--ink);
+  outline:none;transition:.15s;resize:vertical;font-family:inherit;line-height:1.5;
+}
+.field textarea:focus{border-color:var(--c6);box-shadow:0 0 0 3px rgba(124,92,255,.15)}
+
+/* 文字描述生成 - 预设图案网格 */
+.preset-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));
+  gap:8px;margin-bottom:16px;
+}
+.preset-chip{
+  padding:9px 6px;border:1.5px solid var(--line);border-radius:12px;
+  background:#fff;color:var(--ink);font-size:13px;font-weight:700;
+  cursor:pointer;transition:.15s;
+}
+.preset-chip:hover{border-color:var(--c5);background:#f0f7ff}
+.preset-chip:active{transform:translateY(1px)}
+
+/* 步骤徽章变体（文字创作用） */
+.step-badge.alt{background:linear-gradient(135deg,#7c5cff,#4dabf7)}
+
+/* 颜色编号对照表 */
+.number-legend{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
+  gap:8px;margin-bottom:8px;
+}
+.legend-item{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;
+  background:#fff;font-size:13px;
+}
+.legend-num{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:22px;height:22px;border-radius:50%;
+  background:var(--grad);color:#fff;font-weight:800;font-size:12px;
+}
+.color-swatch{
+  width:18px;height:18px;border-radius:5px;flex-shrink:0;
+  border:1px solid rgba(0,0,0,.12);box-shadow:inset 0 0 0 1px rgba(255,255,255,.4);
+}
+.legend-name{font-weight:600}
+.legend-cid{margin-left:auto;font-size:11px;color:var(--muted)}
 
 /* 开关 */
 .switch-row{display:flex;align-items:center;gap:10px;margin-bottom:16px;font-weight:600;font-size:14px}
