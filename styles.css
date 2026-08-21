@@ -133,6 +133,46 @@ body{
 /* 步骤徽章变体（文字创作用） */
 .step-badge.alt{background:linear-gradient(135deg,#7c5cff,#4dabf7)}
 
+/* 创意工具箱 - 折叠面板 */
+.tool-block{
+  border:1.5px solid var(--line);border-radius:14px;
+  margin:12px 0;padding:0;overflow:hidden;background:#fff;
+}
+.tool-block > summary{
+  list-style:none;cursor:pointer;padding:14px 16px;
+  font-weight:700;font-size:15px;color:var(--ink);
+  display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(180deg,#fafbff,#f3f6ff);
+  user-select:none;
+}
+.tool-block > summary::-webkit-details-marker{display:none}
+.tool-block > summary::after{content:"▾";color:var(--muted);font-size:14px;transition:.2s}
+.tool-block[open] > summary::after{transform:rotate(180deg)}
+.tool-block > summary + *{padding:0 16px 14px}
+.tool-block > summary + p{padding:8px 16px 0}
+
+/* 双列布局 */
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:480px){.row2{grid-template-columns:1fr}}
+.field input[type="color"]{
+  width:100%;height:42px;padding:3px;border:1.5px solid var(--line);
+  border-radius:10px;background:#fff;cursor:pointer;
+}
+
+/* 计算器输出 */
+.calc-out{
+  margin-top:12px;padding:12px 14px;border-radius:12px;
+  background:linear-gradient(180deg,#f5f8ff,#eef2fc);
+  border:1.5px solid var(--line);
+}
+.calc-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:7px 0;font-size:14px;border-bottom:1px dashed rgba(0,0,0,.08);
+}
+.calc-row:last-child{border-bottom:none}
+.calc-row b{font-weight:600;color:var(--ink)}
+.calc-row span{font-weight:700;color:var(--c6)}
+
 /* 颜色编号对照表 */
 .number-legend{
   display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
