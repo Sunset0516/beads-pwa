@@ -259,7 +259,6 @@
         <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
         <div class="progress-info">
           <span id="progressText">0 / 0</span>
-          <button id="resetProgressBtn" class="btn-mini">重置进度</button>
         </div>
       </div>
 
@@ -293,7 +292,10 @@
       <div class="result-canvas-wrap">
         <canvas id="resultCanvas"></canvas>
       </div>
-      <p id="checkHint" class="hint" hidden>打卡模式：点击格子标记已放置的豆子</p>
+      <p id="checkHint" class="hint check-hint-row" hidden>
+        <span>打卡模式：点击格子标记已放置的豆子</span>
+        <button id="resetProgressBtn" class="btn-icon" type="button" title="清除所有打卡">🗑️ 清除打卡</button>
+      </p>
 
       <!-- 颜色编号对照表 -->
       <h3>颜色编号对照</h3>
