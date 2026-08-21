@@ -50,36 +50,69 @@
       </div>
     </section>
 
-    <!-- 文字描述生成模板 -->
+    <!-- 创意工具箱 -->
     <section class="card">
-      <h2><span class="step-badge alt">★</span>文字描述生成图片</h2>
-      <p class="hint">输入想要的画面描述，AI 自动生成一张可拼豆的图片并识别画面尺寸</p>
-      <label class="field">
-        <span>画面描述（越具体越好）</span>
-        <textarea id="descInput" rows="2" placeholder="如：一只可爱的橘猫坐在窗台看月亮 / 海滩上的日落 / 樱花树枝上的蓝蝴蝶"></textarea>
-      </label>
-      <div class="preset-grid">
-        <button class="preset-chip" data-desc="一只可爱的橘猫坐在窗台看月亮">🐱 橘猫</button>
-        <button class="preset-chip" data-desc="海滩上的金色日落">🌅 日落</button>
-        <button class="preset-chip" data-desc="樱花树枝上的蓝蝴蝶">🌸 樱花</button>
-        <button class="preset-chip" data-desc="星空银河下的雪山">🌌 星空</button>
-        <button class="preset-chip" data-desc="生日蛋糕和甜点">🍰 蛋糕</button>
-        <button class="preset-chip" data-desc="一条金鱼在水草中游动">🐟 金鱼</button>
-        <button class="preset-chip" data-desc="彩虹色热带鱼">🐠 热带鱼</button>
-        <button class="preset-chip" data-desc="童话城堡和星空">🏰 城堡</button>
-        <button class="preset-chip" data-desc="仙人掌和小花">🌵 仙人掌</button>
-        <button class="preset-chip" data-desc="南极的企鹅">🐧 企鹅</button>
-      </div>
-      <label class="field">
-        <span>图片风格</span>
-        <select id="descColor">
-          <option value="pixel">像素风（推荐，最适合拼豆）</option>
-          <option value="cartoon">卡通插画风</option>
-          <option value="real">写实风</option>
-        </select>
-      </label>
-      <button id="descGenBtn" class="btn-primary">🎨 AI 生成图片</button>
-      <p id="descHint" class="hint" hidden></p>
+      <h2><span class="step-badge alt">★</span>创意工具箱</h2>
+      <p class="hint">不依赖图片，一键生成各类拼豆模板</p>
+
+      <details class="tool-block" open>
+        <summary>🌀 对称曼陀罗生成器</summary>
+        <p class="hint">选对称轴和配色，一键生成旋转对称的几何拼豆图案</p>
+        <div class="row2">
+          <label class="field"><span>对称轴</span>
+            <select id="mandalaAxis"><option>4</option><option selected>6</option><option>8</option><option>12</option></select>
+          </label>
+          <label class="field"><span>配色主题</span>
+            <select id="mandalaTheme">
+              <option value="rainbow">彩虹</option>
+              <option value="ocean">海洋</option>
+              <option value="warm">暖阳</option>
+              <option value="forest">森林</option>
+              <option value="mono">单色渐变</option>
+            </select>
+          </label>
+          <label class="field"><span>尺寸</span>
+            <select id="mandalaSize"><option>25</option><option selected>33</option><option>41</option></select>
+          </label>
+        </div>
+        <button id="mandalaBtn" class="btn-primary">🌀 生成曼陀罗</button>
+      </details>
+
+      <details class="tool-block">
+        <summary>🔤 像素文字字牌</summary>
+        <p class="hint">输入英文/数字，生成像素字牌（仅支持 A–Z、0–9、空格）</p>
+        <label class="field"><span>文字内容</span>
+          <input id="textInput" type="text" placeholder="如：HELLO 2026" maxlength="12">
+        </label>
+        <label class="field"><span>文字颜色</span>
+          <input id="textColor" type="color" value="#1a1a1a">
+        </label>
+        <button id="textBtn" class="btn-primary">🔤 生成字牌</button>
+      </details>
+
+      <details class="tool-block">
+        <summary>🌈 渐变色阶生成器</summary>
+        <p class="hint">选起始色和结束色，生成线性渐变色阶（拼豆渐变背景/字用）</p>
+        <div class="row2">
+          <label class="field"><span>起始色</span><input id="gradC1" type="color" value="#ff3a3a"></label>
+          <label class="field"><span>结束色</span><input id="gradC2" type="color" value="#3a6bff"></label>
+          <label class="field"><span>豆数</span><input id="gradN" type="number" value="12" min="2" max="50"></label>
+        </div>
+        <button id="gradBtn" class="btn-primary">🌈 生成渐变</button>
+      </details>
+
+      <details class="tool-block">
+        <summary>📐 实物尺寸/费用计算器</summary>
+        <p class="hint">按拼豆板规格估算成品尺寸、板数、豆数、费用与耗时（基于当前模板）</p>
+        <div class="row2">
+          <label class="field"><span>豆子规格</span>
+            <select id="calcSpec"><option value="5">5mm 大豆</option><option value="2.6">2.6mm 小豆</option></select>
+          </label>
+          <label class="field"><span>单板边长</span><input id="calcBoard" type="number" value="29" min="2"></label>
+        </div>
+        <button id="calcBtn" class="btn-primary">📐 计算</button>
+        <div id="calcOut" class="calc-out" hidden></div>
+      </details>
     </section>
 
     <!-- 第二步：设置模板 -->
