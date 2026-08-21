@@ -338,7 +338,13 @@
     colorNumbers = assignColorNumbers(grid);
     placed = makeBool2D(w, h);
     currentBoard = boards ? 0 : -1;
-    loadProgress(w, h);
+    // 重新生成图片：清空旧进度缓存 + 关闭打卡模式
+    try { localStorage.removeItem(progKey); } catch (e) {}
+    if (checkModeToggle){
+      checkModeToggle.checked = false;
+      checkHint.hidden = true;
+      resultCanvas.style.cursor = "default";
+    }
     resultCard.hidden = false;
     renderBoardMap();
     renderView();
