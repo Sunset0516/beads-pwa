@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#7c5cff" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <title>拼豆识别器</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="logo-dot"></div>
+    <div>
+      <h1>拼豆识别器</h1>
+      <p>导入图片，自动生成拼豆模板 · 进度打卡 · 库存补货</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- 第一步：导入图片（选择 / 粘贴 / 拍照） -->
+    <section class="card">
+      <h2><span class="step-badge">1</span>导入图片</h2>
+      <div class="import-tools">
+        <button id="cameraBtn" class="btn-mini">📷 拍照</button>
+        <button id="pasteBtn" class="btn-mini">📋 粘贴</button>
+      </div>
+      <div id="dropZone" class="drop-zone">
+        <div class="drop-icon">🖼️</div>
+        <p>点击选择图片，或拖拽到此处</p>
+        <p class="hint">也支持 Ctrl+V 粘贴 / 摄像头拍照</p>
+        <input type="file" id="fileInput" accept="image/*" hidden />
+      </div>
+
+      <!-- 摄像头区 -->
+      <div id="cameraWrap" class="camera-wrap" hidden>
+        <video id="cameraVideo" autoplay playsinline></video>
+        <div class="camera-tools">
+          <button id="switchCamBtn" class="btn-mini">🔄 切换</button>
+          <button id="snapBtn" class="btn-primary btn-sm">📸 拍照</button>
+          <button id="closeCamBtn" class="btn-mini">✕ 关闭</button>
+        </div>
+      </div>
+
+      <div id="previewWrap" class="preview-wrap" hidden>
+        <img id="previewImg" alt="预览" />
+        <button id="changeImgBtn" class="btn-text">更换图片</button>
+      </div>
+    </section>
+
+    <!-- 第二步：设置模板 -->
+    <section class="card">
+      <h2><span class="step-badge">2</span>设置模板</h2>
+      <label class="field">
+        <span>模板尺寸（宽 × 高，即拼豆板行列数）</span>
+        <div class="size-row">
+          <select id="sizePreset">
+            <option value="0">自定义</option>
+            <option value="15">15 × 15 小板</option>
+            <option value="20">20 × 20</option>
+            <option value="29" selected>29 × 29 标准方板</option>
+            <option value="32">32 × 32</option>
+            <option value="50">50 × 50 大图</option>
+          </select>
+          <input type="number" id="sizeW" value="29" min="2" max="100" />
+          <span class="x">×</span>
+          <input type="number" id="sizeH" value="29" min="2" max="100" />
+        </div>
+      </label>
+
+      <label class="field">
+        <span>单块拼豆板边长（大图自动分板，0=不分板）</span>
+        <input type="number" id="boardSize" value="29" min="0" max="100" />
+      </label>
+
+      <label class="field">
+        <span>背景处理</span>
+        <select id="bgMode">
+          <option value="white">浅色背景按白色豆子</option>
+          <option value="none" selected>保留原图背景</option>
+          <option value="trans">透明背景忽略（不匹配）</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>透明度阈值（低于此透明度不匹配）</span>
+        <input type="range" id="alphaTh" min="0" max="255" value="20" />
+        <span id="alphaThVal" class="hint">20</span>
+      </label>
+
+      <div class="switch-row">
+        <span>显示网格线</span>
+        <input type="checkbox" id="showGrid" checked />
+        <span class="switch"></span>
+      </div>
+      <div class="switch-row">
+        <span>显示色号标签</span>
+        <input type="checkbox" id="showLabels" />
+        <span class="switch"></span>
+      </div>
+
+      <!-- 我的豆库 -->
+      <div class="inv-toggle-row">
+        <label class="switch-row" style="margin:0">
+          <span>我的豆库：只用我拥有的颜色</span>
+          <input type="checkbox" id="invEnable" />
+          <span class="switch"></span>
+        </label>
+        <button id="invEditBtn" class="btn-mini">管理豆库</button>
+      </div>
+      <div id="invPanel" class="inv-panel" hidden>
+        <div class="inv-actions">
+          <button id="invAllBtn" class="btn-mini">全选</button>
+          <button id="invNoneBtn" class="btn-mini">全清</button>
+          <span class="hint" id="invSummary">未选择任何颜色</span>
+        </div>
+        <div id="invList" class="inv-list"></div>
+      </div>
+
+      <button id="generateBtn" class="btn-primary" disabled>生成拼豆模板</button>
+    </section>
+
+    <!-- 第三步：结果 -->
+    <section class="card" id="resultCard" hidden>
+      <h2><span class="step-badge">3</span>拼豆模板</h2>
+
+      <!-- 进度打卡条 -->
+      <div id="progressWrap" class="progress-wrap" hidden>
+        <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+        <div class="progress-info">
+          <span id="progressText">0 / 0</span>
+          <button id="resetProgressBtn" class="btn-mini">重置进度</button>
+        </div>
+      </div>
+
+      <!-- 工具栏 -->
+      <div class="result-tools">
+        <button id="downloadBtn" class="btn-secondary">⬇ 下载模板图</button>
+        <button id="copyListBtn" class="btn-secondary">📋 清单</button>
+        <button id="flipHBtn" class="btn-mini">⇋ 水平镜像</button>
+        <button id="flipVBtn" class="btn-mini">⇥ 垂直镜像</button>
+      </div>
+      <div class="result-tools">
+        <label class="switch-row" style="margin:0;flex:1">
+          <span>色差热力图</span>
+          <input type="checkbox" id="heatmapToggle" />
+          <span class="switch"></span>
+        </label>
+        <label class="switch-row" style="margin:0;flex:1">
+          <span>进度打卡模式</span>
+          <input type="checkbox" id="checkModeToggle" />
+          <span class="switch"></span>
+        </label>
+      </div>
+
+      <!-- 分板地图 -->
+      <div id="boardMapWrap" class="board-map-wrap" hidden>
+        <h3>分板拼接地图（点击查看某块）</h3>
+        <div id="boardMap" class="board-map"></div>
+        <div id="boardInfo" class="hint"></div>
+      </div>
+
+      <div class="result-canvas-wrap">
+        <canvas id="resultCanvas"></canvas>
+      </div>
+      <p id="checkHint" class="hint" hidden>打卡模式：点击格子标记已放置的豆子</p>
+
+      <h3>颜色用量清单</h3>
+      <div id="statsSummary" class="stats-summary"></div>
+
+      <!-- 购物换算 -->
+      <div class="shop-row">
+        <label class="field" style="margin:0">
+          <span>每袋颗数</span>
+          <input type="number" id="perPack" value="1000" min="1" />
+        </label>
+        <label class="field" style="margin:0">
+          <span>单价(¥/袋)</span>
+          <input type="number" id="price" value="12" min="0" step="0.5" />
+        </label>
+      </div>
+      <div id="shopSummary" class="stats-summary"></div>
+
+      <div id="colorList" class="color-list"></div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    拼豆识别器 · 离线可用 · 可安装到桌面
+  </footer>
+
+  <script src="beads-colors.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
