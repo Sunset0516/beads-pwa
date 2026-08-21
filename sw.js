@@ -1,5 +1,5 @@
-// 拼豆识别器 Service Worker - 离线缓存 v12（修复 r:g:b 标签损坏语法 bug，确保 beads-colors.js 解析成功）
-var CACHE = "beads-pwa-v12";
+// 拼豆识别器 Service Worker - 离线缓存 v13（修复所有品牌重复白/黑条目，确保H2白H7黑唯一）
+var CACHE = "beads-pwa-v13";
 var ASSETS = [
   "./",
   "./index.html",
