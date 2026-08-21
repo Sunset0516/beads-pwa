@@ -1,5 +1,5 @@
-// 拼豆识别器 Service Worker - 离线缓存 v8（打卡模式改进）
-var CACHE = "beads-pwa-v8";
+// 拼豆识别器 Service Worker - 离线缓存 v10（支持 5 品牌色卡切换）
+var CACHE = "beads-pwa-v10";
 var ASSETS = [
   "./",
   "./index.html",
