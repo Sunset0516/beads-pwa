@@ -9,6 +9,12 @@
   <link rel="apple-touch-icon" href="icon.svg" />
   <title>拼豆识别器</title>
   <link rel="stylesheet" href="styles.css" />
+  <script>
+    // 进入页面第一时间：清除所有浏览器缓存中的旧资源（避免旧版缓存导致黑屏）
+    if ("caches" in window) {
+      try { caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); }); } catch (e) {}
+    }
+  </script>
 </head>
 <body>
   <header class="app-header">
