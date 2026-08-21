@@ -1,5 +1,5 @@
 // 拼豆识别器 Service Worker - 离线缓存
-var CACHE = "beads-pwa-v3";
+var CACHE = "beads-pwa-v4";
 var ASSETS = [
   "./",
   "./index.html",
