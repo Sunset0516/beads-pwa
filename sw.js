@@ -1,5 +1,5 @@
-// 拼豆识别器 Service Worker - 离线缓存 v5（强制清理旧版）
-var CACHE = "beads-pwa-v5";
+// 拼豆识别器 Service Worker - 离线缓存 v6（功能升级）
+var CACHE = "beads-pwa-v6";
 var ASSETS = [
   "./",
   "./index.html",
