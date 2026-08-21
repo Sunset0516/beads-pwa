@@ -52,40 +52,33 @@
 
     <!-- 文字描述生成模板 -->
     <section class="card">
-      <h2><span class="step-badge alt">★</span>文字描述生成模板</h2>
-      <p class="hint">输入图案描述，自动生成拼豆模板并识别画面需要的尺寸</p>
+      <h2><span class="step-badge alt">★</span>文字描述生成图片</h2>
+      <p class="hint">输入想要的画面描述，AI 自动生成一张可拼豆的图片并识别画面尺寸</p>
       <label class="field">
-        <span>图案描述</span>
-        <textarea id="descInput" rows="2" placeholder="如：红色心形 / 笑脸 / 花朵 / 圣诞树 / 雪花 / 猫脸"></textarea>
+        <span>画面描述（越具体越好）</span>
+        <textarea id="descInput" rows="2" placeholder="如：一只可爱的橘猫坐在窗台看月亮 / 海滩上的日落 / 樱花树枝上的蓝蝴蝶"></textarea>
       </label>
       <div class="preset-grid">
-        <button class="preset-chip" data-desc="心形">❤️ 心形</button>
-        <button class="preset-chip" data-desc="星形">⭐ 星形</button>
-        <button class="preset-chip" data-desc="花朵">🌸 花朵</button>
-        <button class="preset-chip" data-desc="笑脸">😊 笑脸</button>
-        <button class="preset-chip" data-desc="猫脸">🐱 猫脸</button>
-        <button class="preset-chip" data-desc="圣诞树">🎄 树</button>
-        <button class="preset-chip" data-desc="雪花">❄️ 雪花</button>
-        <button class="preset-chip" data-desc="爱心">💕 爱心</button>
-        <button class="preset-chip" data-desc="鱼">🐟 鱼</button>
-        <button class="preset-chip" data-desc="蝴蝶">🦋 蝴蝶</button>
+        <button class="preset-chip" data-desc="一只可爱的橘猫坐在窗台看月亮">🐱 橘猫</button>
+        <button class="preset-chip" data-desc="海滩上的金色日落">🌅 日落</button>
+        <button class="preset-chip" data-desc="樱花树枝上的蓝蝴蝶">🌸 樱花</button>
+        <button class="preset-chip" data-desc="星空银河下的雪山">🌌 星空</button>
+        <button class="preset-chip" data-desc="生日蛋糕和甜点">🍰 蛋糕</button>
+        <button class="preset-chip" data-desc="一条金鱼在水草中游动">🐟 金鱼</button>
+        <button class="preset-chip" data-desc="彩虹色热带鱼">🐠 热带鱼</button>
+        <button class="preset-chip" data-desc="童话城堡和星空">🏰 城堡</button>
+        <button class="preset-chip" data-desc="仙人掌和小花">🌵 仙人掌</button>
+        <button class="preset-chip" data-desc="南极的企鹅">🐧 企鹅</button>
       </div>
       <label class="field">
-        <span>主色调（可省略，自动从描述识别）</span>
+        <span>图片风格</span>
         <select id="descColor">
-          <option value="auto">自动识别</option>
-          <option value="red">红色</option>
-          <option value="pink">粉色</option>
-          <option value="orange">橙色</option>
-          <option value="yellow">黄色</option>
-          <option value="green">绿色</option>
-          <option value="blue">蓝色</option>
-          <option value="purple">紫色</option>
-          <option value="black">黑色</option>
-          <option value="white">白色</option>
+          <option value="pixel">像素风（推荐，最适合拼豆）</option>
+          <option value="cartoon">卡通插画风</option>
+          <option value="real">写实风</option>
         </select>
       </label>
-      <button id="descGenBtn" class="btn-primary">🎨 生成模板</button>
+      <button id="descGenBtn" class="btn-primary">🎨 AI 生成图片</button>
       <p id="descHint" class="hint" hidden></p>
     </section>
 
