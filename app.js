@@ -13,10 +13,12 @@
   var switchCamBtn = $("switchCamBtn"), snapBtn = $("snapBtn"), closeCamBtn = $("closeCamBtn");
   var sizePreset = $("sizePreset"), sizeW = $("sizeW"), sizeH = $("sizeH"), boardSizeEl = $("boardSize");
   var bgMode = $("bgMode"), alphaTh = $("alphaTh"), alphaThVal = $("alphaThVal");
-  var showGrid = $("showGrid"), showLabels = $("showLabels");
+  var showGrid = $("showGrid"), showLabels = $("showLabels"), showNumbers = $("showNumbers");
   var invEnable = $("invEnable"), invEditBtn = $("invEditBtn"), invPanel = $("invPanel");
   var invList = $("invList"), invAllBtn = $("invAllBtn"), invNoneBtn = $("invNoneBtn"), invSummary = $("invSummary");
   var generateBtn = $("generateBtn");
+  var descInput = $("descInput"), descColor = $("descColor"), descGenBtn = $("descGenBtn"), descHint = $("descHint");
+  var numberLegend = $("numberLegend");
   var resultCard = $("resultCard"), resultCanvas = $("resultCanvas");
   var downloadBtn = $("downloadBtn"), copyListBtn = $("copyListBtn");
   var flipHBtn = $("flipHBtn"), flipVBtn = $("flipVBtn");
@@ -31,6 +33,7 @@
   /* ---------- 状态 ---------- */
   var currentImage = null;
   var lastResult = null;       // { grid, w, h, boards, boardSize, maxDist }
+  var colorNumbers = null;     // { id -> number } 颜色编号映射
   var placed = null;           // 二维布尔 (整图尺寸) 进度打卡
   var boards = null;           // 分板数组
   var currentBoard = -1;       // -1 = 整图视图;否则为board索引
@@ -272,26 +275,44 @@
       alert("已开启豆库模式，请先在「管理豆库」里勾选你拥有的颜色"); return;
     }
     var res = pixelize(currentImage, w, h, aTh, mode, allowIds);
-    boards = computeBoards(w, h, bsz);
-    lastResult = { grid: res.grid, w: w, h: h, maxDist: res.maxDist, boardSize: bsz };
+    applyResult(res.grid, w, h, bsz, res.maxDist);
+  });
 
-    // 进度打卡数组
+  /* 生成结果统一应用：分板/编号/进度/渲染 */
+  function applyResult(grid, w, h, bsz, maxDist) {
+    boards = computeBoards(w, h, bsz);
+    lastResult = { grid: grid, w: w, h: h, maxDist: maxDist || 0, boardSize: bsz };
+    colorNumbers = assignColorNumbers(grid);
     placed = makeBool2D(w, h);
     currentBoard = boards ? 0 : -1;
     loadProgress(w, h);
-
     resultCard.hidden = false;
     renderBoardMap();
     renderView();
     renderStats();
+    renderNumberLegend();
     updateProgress();
     if (boards) boardMapWrap.hidden = false; else boardMapWrap.hidden = true;
     progressWrap.hidden = false;
     resultCard.scrollIntoView({ behavior: "smooth", block: "start" });
-  });
+  }
 
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
   function makeBool2D(w, h) { var a = []; for (var y = 0; y < h; y++) { a.push(new Array(w).fill(false)); } return a; }
+
+  /* 给每种不同颜色分配数字编号（1,2,3…），按出现顺序 */
+  function assignColorNumbers(grid) {
+    var map = {}, n = 0;
+    for (var y = 0; y < grid.length; y++) {
+      for (var x = 0; x < grid[y].length; x++) {
+        var c = grid[y][x];
+        if (!c) continue;
+        var id = c.bead.id;
+        if (!(id in map)) map[id] = ++n;
+      }
+    }
+    return map;
+  }
 
   /* 当前视图区域 */
   function viewRect() {
@@ -308,7 +329,8 @@
     var grid = lastResult.grid;
     var heat = heatmapToggle.checked;
     var labels = showLabels.checked;
-    var cell = labels ? 24 : 16;
+    var numbers = showNumbers.checked;
+    var cell = (labels || numbers) ? 26 : 16;
     var maxD = lastResult.maxDist || 1;
     var canvas = resultCanvas;
     canvas.width = vr.w * cell; canvas.height = vr.h * cell;
@@ -339,11 +361,19 @@
         ctx.beginPath();
         ctx.arc(px + cell / 2 - cell * 0.12, py + cell / 2 - cell * 0.12, cell * 0.1, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(255,255,255,.28)"; ctx.fill();
+        // 颜色数字编号（中央大字）
+        if (numbers && colorNumbers) {
+          ctx.fillStyle = contrastColor(c.r, c.g, c.b);
+          ctx.font = "bold " + Math.floor(cell * 0.42) + "px sans-serif";
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText(colorNumbers[c.id] || "", px + cell / 2, py + cell / 2);
+        }
+        // 色号标签（底部小字）
         if (labels) {
           ctx.fillStyle = contrastColor(c.r, c.g, c.b);
-          ctx.font = "bold " + Math.floor(cell * 0.3) + "px sans-serif";
-          ctx.textAlign = "center"; ctx.textBaseline = "middle";
-          ctx.fillText(c.id, px + cell / 2, py + cell / 2);
+          ctx.font = Math.floor(cell * 0.24) + "px sans-serif";
+          ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+          ctx.fillText(c.id, px + cell / 2, py + cell - 2);
         }
         // 进度打卡遮罩
         if (placed && placed[gy][gx]) {
@@ -455,8 +485,36 @@
     }
     lastResult.grid = ng;
     placed = makeBool2D(w, h); // 镜像后重置进度
+    colorNumbers = assignColorNumbers(ng);
     saveProgress();
-    renderView(); renderStats(); updateProgress();
+    renderView(); renderStats(); renderNumberLegend(); updateProgress();
+  }
+
+  /* ================= 颜色编号对照表 ================= */
+  function renderNumberLegend() {
+    if (!lastResult || !colorNumbers) { numberLegend.innerHTML = ""; return; }
+    var agg = gatherCounts(false);
+    var items = Object.keys(colorNumbers).map(function (id) {
+      return { id: id, num: colorNumbers[id], bead: (agg.counts[id] || {}).bead || findBead(id) };
+    });
+    items.sort(function (a, b) { return a.num - b.num; });
+    numberLegend.innerHTML = "";
+    items.forEach(function (it) {
+      var b = it.bead; if (!b) return;
+      var div = document.createElement("div");
+      div.className = "legend-item";
+      var sw = "rgb(" + b.r + "," + b.g + "," + b.b + ")";
+      div.innerHTML =
+        '<span class="legend-num">' + it.num + '</span>' +
+        '<span class="color-swatch" style="background:' + sw + '"></span>' +
+        '<span class="legend-name">' + b.name + '</span>' +
+        '<span class="legend-cid">色号 ' + b.id + '</span>';
+      numberLegend.appendChild(div);
+    });
+  }
+  function findBead(id) {
+    for (var i = 0; i < BEADS.length; i++) if (BEADS[i].id === id) return BEADS[i];
+    return null;
   }
 
   /* ================= 清单 + 购物换算 ================= */
@@ -560,10 +618,149 @@
   // 视图重绘触发
   showGrid.addEventListener("change", function () { if (lastResult) renderView(); });
   showLabels.addEventListener("change", function () { if (lastResult) renderView(); });
+  showNumbers.addEventListener("change", function () { if (lastResult) renderView(); });
   heatmapToggle.addEventListener("change", function () { if (lastResult) renderView(); });
 
   // 初始化库存摘要
   updateInvSummary();
+
+  /* ================= 文字描述生成模板 ================= */
+  // 主色候选（用户选/从描述识别）
+  var DESC_COLORS = {
+    red:[225,40,40], pink:[255,105,180], orange:[255,130,30],
+    yellow:[255,213,0], green:[80,180,80], blue:[60,130,230],
+    purple:[140,80,200], black:[25,25,30], white:[255,255,255]
+  };
+  // 固定装饰色
+  var FIXED_COLORS = {
+    'Y':[255,213,0], 'K':[25,25,30], 'P':[255,105,180], 'D':[95,60,35]
+  };
+  // 图案库（'X'=主色占位，其余为装饰色，'.'或空=无豆）
+  var PATTERNS = [
+    { name:"心形", rows:[
+      "..XX...XX..",".XXXXXXXXX.","XXXXXXXXXXX","XXXXXXXXXXX",
+      ".XXXXXXXXX.","..XXXXXXX..","...XXXXX...","....XXX....",".....X....."
+    ], w:11, h:9, def:"red" },
+    { name:"爱心", rows:[
+      "...XX...XX...",".XXXXXXXXXXX.","XXXXXXXXXXXXX","XXXXXXXXXXXXX",
+      ".XXXXXXXXXXX.","..XXXXXXXXX..","...XXXXXXX...","....XXXXX....",
+      ".....XXX.....","......X......","............."
+    ], w:13, h:11, def:"pink" },
+    { name:"星形", rows:[
+      ".....X.....","....XXX....","...XXXXX...","XXXXXXXXXXX",
+      ".XXXXXXXXX.","..XXXXXXX..","...XXXXX...","..XX...XX..",
+      ".XX.....XX.","XX.......XX","X.........X"
+    ], w:11, h:11, def:"yellow" },
+    { name:"花朵", rows:[
+      ".............",".............",".....XXX.....","...XXXXXXX...",
+      ".XXXXXXXXXXX.","XXXXXYYYXXXXX","XXXXXYYYXXXXX","XXXXXXXXXXXXX",
+      ".XXXXXXXXXXX.","...XXXXXXX...",".....XXX.....",".............","............."
+    ], w:13, h:13, def:"pink" },
+    { name:"笑脸", rows:[
+      "....XXXXX....","..XXXXXXXXX..",".XXXXXXXXXXX.","XXXXXXXXXXXXX",
+      "XXXXKXXXKXXXX","XXXXKXXXKXXXX","XXXXXXXXXXXXX","XXXK.....KXXX",
+      "XXXXKKKKKXXXX",".XXXXXXXXXXX.","..XXXXXXXXX..","...XXXXXXX...",".....XXX....."
+    ], w:13, h:13, def:"yellow" },
+    { name:"猫脸", rows:[
+      "XX.........XX","XXX.......XXX","XXXXXXXXXXXXX","XXXXXXXXXXXXX",
+      "XXXXKKXKKXXXX","XXXXXXXXXXXXX","XXXXXXPXXXXXX","XXXXKKKKKXXXX",
+      "XXXXXXXXXXXXX","XXXXXXXXXXXXX","XXXXXXXXXXXXX",".XXXXXXXXXXX.","..XXXXXXXXX.."
+    ], w:13, h:13, def:"orange" },
+    { name:"圣诞树", rows:[
+      ".....X.....","....XXX....","...XXXXX...","..XXXXXXX..",
+      ".XXXXXXXXX.","XXXXXXXXXXX",".XXXXXXXXX.","XXXXXXXXXXX",
+      "...DDDDD...","...DDDDD...","...........","..........."
+    ], w:11, h:12, def:"green" },
+    { name:"雪花", rows:[
+      "......X......",".....XXX.....","....XXXXX....","...XXXXXXX...",
+      "..XXXXXXXXX..",".XXXXXXXXXXX.","XXXXXXXXXXXXX",".XXXXXXXXXXX.",
+      "..XXXXXXXXX..","...XXXXXXX...","....XXXXX....",".....XXX.....","......X......"
+    ], w:13, h:13, def:"blue" },
+    { name:"鱼", rows:[
+      "....XXXXX....","..XXXXXXXXX..",".XXXXXXXXXXX.","XXXXXXXXXXXK.",
+      ".XXXXXXXXXXX.","..XXXXXXXXX..","....XXXXX....","............."
+    ], w:13, h:8, def:"orange" },
+    { name:"蝴蝶", rows:[
+      ".............","XX....Y....XX","XXXX..Y..XXXX",".XXXX.Y.XXXX.",
+      "..XXX.Y.XXX..",".XXXX.Y.XXXX.","XXXX..Y..XXXX","XX....Y....XX","............."
+    ], w:13, h:9, def:"pink" }
+  ];
+  // 关键词 -> 图案索引（多字优先）
+  var KW_MAP = [
+    ["蝴蝶",9],["爱心",1],["心",0],["星",2],["花",3],
+    ["笑",4],["猫",5],["树",6],["雪",7],["鱼",8]
+  ];
+  function matchPattern(desc) {
+    for (var i=0;i<KW_MAP.length;i++){
+      if (desc.indexOf(KW_MAP[i][0]) >= 0) return PATTERNS[KW_MAP[i][1]];
+    }
+    return null;
+  }
+  function parseColorWord(desc) {
+    if (/红/.test(desc)) return "red";
+    if (/粉/.test(desc)) return "pink";
+    if (/橙/.test(desc)) return "orange";
+    if (/黄/.test(desc)) return "yellow";
+    if (/绿/.test(desc)) return "green";
+    if (/蓝/.test(desc)) return "blue";
+    if (/紫/.test(desc)) return "purple";
+    if (/黑/.test(desc)) return "black";
+    if (/白/.test(desc)) return "white";
+    return null;
+  }
+  function generateFromDesc(desc) {
+    var pat = matchPattern(desc);
+    if (!pat) return null;
+    var colorKey = descColor.value;
+    if (colorKey === "auto" || !colorKey) colorKey = parseColorWord(desc) || pat.def;
+    var mainRgb = DESC_COLORS[colorKey] || DESC_COLORS[pat.def];
+    var w = pat.w, h = pat.h, grid = [];
+    for (var y=0;y<h;y++){
+      var row = [], line = pat.rows[y] || "";
+      for (var x=0;x<w;x++){
+        var ch = line.charAt(x);
+        if (ch === "" || ch === "." || ch === " ") { row.push(null); continue; }
+        var rgb = (ch === "X") ? mainRgb : FIXED_COLORS[ch];
+        if (!rgb) { row.push(null); continue; }
+        var m = matchColor(rgb[0], rgb[1], rgb[2], null);
+        row.push({ bead: m.bead, r: rgb[0], g: rgb[1], b: rgb[2], dist: m.dist });
+      }
+      grid.push(row);
+    }
+    return { grid: grid, w: w, h: h, color: colorKey, name: pat.name };
+  }
+  descGenBtn.addEventListener("click", function () {
+    var desc = (descInput.value || "").trim();
+    if (!desc) {
+      descHint.hidden = false;
+      descHint.textContent = "请输入图案描述，或点击下方预设";
+      return;
+    }
+    var r = generateFromDesc(desc);
+    if (!r) {
+      descHint.hidden = false;
+      descHint.textContent = "未识别到图案，可尝试：心形/星形/花朵/笑脸/猫脸/圣诞树/雪花/鱼/蝴蝶";
+      return;
+    }
+    // 自动识别画面需要的尺寸，回填尺寸输入框
+    sizeW.value = r.w; sizeH.value = r.h; sizePreset.value = "0";
+    descHint.hidden = false;
+    descHint.textContent = "已生成「" + r.name + "」，自动识别画面尺寸 " + r.w + " × " + r.h + "，主色 " + r.color;
+    var bsz = Math.max(0, parseInt(boardSizeEl.value, 10) || 0);
+    // 清空图片预览，避免与图片模式混淆
+    currentImage = null;
+    previewWrap.hidden = true; dropZone.style.display = "";
+    generateBtn.disabled = false;
+    applyResult(r.grid, r.w, r.h, bsz, 0);
+  });
+  // 预设图案按钮
+  var presetChips = document.querySelectorAll(".preset-chip");
+  for (var pi=0; pi<presetChips.length; pi++) {
+    presetChips[pi].addEventListener("click", function () {
+      descInput.value = this.getAttribute("data-desc");
+      descGenBtn.click();
+    });
+  }
 
   /* ================= Service Worker ================= */
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
