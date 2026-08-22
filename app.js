@@ -1360,126 +1360,129 @@
   /* ================= 打印分页排版 ================= */
   printBtn.addEventListener("click", function () {
     if (!lastResult) { alert("请先生成一个模板"); return; }
-    var cell = parseInt(printCellEl.value) || 24;
     var orient = printOrientEl.value;
-    // A4 纸可打印像素区域（留 15mm 边距）
-    // 纵向 180×262mm，横向 262×180mm，按 3.78px/mm
+    // A4 可打印像素区域（留 15mm 边距，3.78px/mm）
     var pW, pH;
-    if (orient === "portrait") { pW = 180; pH = 252; }
-    else { pW = 252; pH = 180; }
-    var beadsPerRow = Math.floor((pW * 3.78 - 40) / cell);  // 留 40px 给页边信息
-    var beadsPerCol = Math.floor((pH * 3.78 - 60) / cell);
-    if (beadsPerRow < 5) beadsPerRow = 5;
-    if (beadsPerCol < 5) beadsPerCol = 5;
+    if (orient === "portrait") { pW = 680; pH = 952; }
+    else { pW = 952; pH = 680; }
 
     var grid = lastResult.grid;
     var totalW = lastResult.w, totalH = lastResult.h;
-    var pagesW = Math.ceil(totalW / beadsPerRow);
-    var pagesH = Math.ceil(totalH / beadsPerCol);
-    var totalPages = pagesW * pagesH;
 
-    var html = "";
-    for (var py = 0; py < pagesH; py++) {
-      for (var px = 0; px < pagesW; px++) {
-        var page = py * pagesW + px + 1;
-        var x0 = px * beadsPerRow, y0 = py * beadsPerCol;
-        var w = Math.min(beadsPerRow, totalW - x0);
-        var h = Math.min(beadsPerCol, totalH - y0);
-
-        // 生成该页 canvas
-        var cv = document.createElement("canvas");
-        cv.width = w * cell + 40;
-        cv.height = h * cell + 80;
-        var cx = cv.getContext("2d");
-        cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height);
-
-        // 对齐标记
-        cx.strokeStyle = "#888"; cx.lineWidth = 1.5;
-        var mk = 12, ox = 20, oy = 30;
-        // 左上
-        cx.beginPath(); cx.moveTo(ox, oy + mk); cx.lineTo(ox, oy); cx.lineTo(ox + mk, oy); cx.stroke();
-        // 右上
-        cx.beginPath(); cx.moveTo(ox + w * cell - mk, oy); cx.lineTo(ox + w * cell, oy); cx.lineTo(ox + w * cell, oy + mk); cx.stroke();
-        // 左下
-        cx.beginPath(); cx.moveTo(ox, oy + h * cell - mk); cx.lineTo(ox, oy + h * cell); cx.lineTo(ox + mk, oy + h * cell); cx.stroke();
-        // 右下
-        cx.beginPath(); cx.moveTo(ox + w * cell - mk, oy + h * cell); cx.lineTo(ox + w * cell, oy + h * cell); cx.lineTo(ox + w * cell, oy + h * cell - mk); cx.stroke();
-
-        // 网格线和颜色
-        for (var gy = 0; gy < h; gy++) {
-          for (var gx = 0; gx < w; gx++) {
-            var c = grid[y0 + gy][x0 + gx];
-            var dx = ox + gx * cell, dy = oy + gy * cell;
-            if (!c) {
-              // 透明：画棋盘格背景
-              cx.fillStyle = ((gx + gy) % 2 === 0) ? "#f5f5f5" : "#e8e8e8";
-              cx.fillRect(dx, dy, cell, cell);
-            } else {
-              cx.fillStyle = "rgb(" + c.bead.r + "," + c.bead.g + "," + c.bead.b + ")";
-              cx.fillRect(dx, dy, cell, cell);
-              // 编号
-              if (colorNumbers && colorNumbers[c.bead.id]) {
-                cx.fillStyle = contrastColor(c.bead.r, c.bead.g, c.bead.b);
-                cx.font = Math.floor(cell * 0.35) + "px sans-serif";
-                cx.textAlign = "center"; cx.textBaseline = "middle";
-                cx.fillText(colorNumbers[c.bead.id], dx + cell / 2, dy + cell / 2);
-              }
-            }
-            // 网格线
-            cx.strokeStyle = "#ddd"; cx.lineWidth = 0.5;
-            cx.strokeRect(dx, dy, cell, cell);
-          }
-        }
-
-        // 页眉信息
-        cx.fillStyle = "#333";
-        cx.font = "14px sans-serif"; cx.textAlign = "left"; cx.textBaseline = "alphabetic";
-        cx.fillText("拼豆模板 · " + totalW + "×" + totalH + " · 第 " + page + "/" + totalPages + " 页", 20, 20);
-        // 区域信息
-        cx.font = "12px sans-serif"; cx.fillStyle = "#888";
-        cx.fillText("行 " + (y0 + 1) + "-" + (y0 + h) + " / 列 " + (x0 + 1) + "-" + (x0 + w), 20, cv.height - 15);
-
-        // 本页颜色清单
-        var pageColors = {};
-        for (var gy2 = 0; gy2 < h; gy2++) for (var gx2 = 0; gx2 < w; gx2++) {
-          var c2 = grid[y0 + gy2][x0 + gx2];
-          if (!c2) continue;
-          var id2 = c2.bead.id;
-          if (!pageColors[id2]) pageColors[id2] = { bead: c2.bead, n: 0 };
-          pageColors[id2].n++;
-        }
-        var colorArr = Object.keys(pageColors).map(function (k) { return pageColors[k]; });
-        colorArr.sort(function (a, b) { return b.n - a.n; });
-        var legendY = cv.height - 20;
-        var legendX = ox + w * cell + 10;
-        if (legendX + 120 > cv.width) legendX = 20;
-        cx.font = "11px sans-serif";
-        colorArr.forEach(function (it, i) {
-          var bid = getBrandId(it.bead);
-          var bname = getBrandName(it.bead);
-          var row = Math.floor(i / 4);
-          var col = i % 4;
-          var lx = 20 + col * (cv.width - 40) / 4;
-          var ly = cv.height - 20 + row * 16;
-          if (ly < cv.height) {
-            cx.fillStyle = "rgb(" + it.bead.r + "," + it.bead.g + "," + it.bead.b + ")";
-            cx.fillRect(lx, ly - 10, 12, 12);
-            cx.fillStyle = "#333";
-            cx.fillText(bid + " " + bname + " ×" + it.n, lx + 16, ly);
-          }
-        });
-
-        var dataUrl = cv.toDataURL("image/png");
-        html += '<div class="print-page">' +
-          '<img src="' + dataUrl + '" alt="第' + page + '页">' +
-          '</div>';
-      }
+    // 确定分页方式：有分板 → 每块板一页；无分板 → 整图一页
+    var pages = [];
+    if (boards && boards.length > 0) {
+      // 分板模式：每块板一页
+      boards.forEach(function (b) {
+        pages.push({ x0: b.x0, y0: b.y0, w: b.w, h: b.h, label: "板 " + (b.r + 1) + "-" + (b.c + 1) });
+      });
+    } else {
+      // 不分板：整图一页
+      pages.push({ x0: 0, y0: 0, w: totalW, h: totalH, label: "整图" });
     }
+
+    // 渲染每页
+    var html = "";
+    pages.forEach(function (pg, idx) {
+      var page = idx + 1;
+      var pw = pg.w, ph = pg.h;
+
+      // 自动计算格子大小：让内容尽量填满 A4
+      var availW = pW - 40, availH = pH - 60;
+      var maxCell = Math.floor(Math.min(availW / pw, availH / ph));
+      // 用户选择的格子大小作为上限
+      var userCell = parseInt(printCellEl.value) || 24;
+      var cell = Math.min(maxCell, userCell);
+      if (cell < 6) cell = 6;
+
+      // 先统计本页颜色数量，用于计算 canvas 高度
+      var pageColors = {};
+      for (var gy2 = 0; gy2 < ph; gy2++) for (var gx2 = 0; gx2 < pw; gx2++) {
+        var c2 = grid[pg.y0 + gy2][pg.x0 + gx2];
+        if (!c2) continue;
+        var id2 = c2.bead.id;
+        if (!pageColors[id2]) pageColors[id2] = { bead: c2.bead, n: 0 };
+        pageColors[id2].n++;
+      }
+      var colorArr = Object.keys(pageColors).map(function (k) { return pageColors[k]; });
+      colorArr.sort(function (a, b) { return b.n - a.n; });
+
+      // canvas 高度：模板区域 + 颜色清单区域
+      var legendCols = Math.max(1, Math.floor((pw * cell) / 140));
+      var legendRows = Math.ceil(colorArr.length / legendCols);
+      var legendH = legendRows * 16 + 20;
+
+      var cv = document.createElement("canvas");
+      cv.width = pw * cell + 40;
+      cv.height = ph * cell + 50 + legendH;
+      var cx = cv.getContext("2d");
+      cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height);
+
+      // 对齐标记
+      cx.strokeStyle = "#888"; cx.lineWidth = 1.5;
+      var mk = 12, ox = 20, oy = 30;
+      cx.beginPath(); cx.moveTo(ox, oy + mk); cx.lineTo(ox, oy); cx.lineTo(ox + mk, oy); cx.stroke();
+      cx.beginPath(); cx.moveTo(ox + pw * cell - mk, oy); cx.lineTo(ox + pw * cell, oy); cx.lineTo(ox + pw * cell, oy + mk); cx.stroke();
+      cx.beginPath(); cx.moveTo(ox, oy + ph * cell - mk); cx.lineTo(ox, oy + ph * cell); cx.lineTo(ox + mk, oy + ph * cell); cx.stroke();
+      cx.beginPath(); cx.moveTo(ox + pw * cell - mk, oy + ph * cell); cx.lineTo(ox + pw * cell, oy + ph * cell); cx.lineTo(ox + pw * cell, oy + ph * cell - mk); cx.stroke();
+
+      // 网格和颜色
+      for (var gy = 0; gy < ph; gy++) {
+        for (var gx = 0; gx < pw; gx++) {
+          var c = grid[pg.y0 + gy][pg.x0 + gx];
+          var dx = ox + gx * cell, dy = oy + gy * cell;
+          if (!c) {
+            cx.fillStyle = ((gx + gy) % 2 === 0) ? "#f5f5f5" : "#e8e8e8";
+            cx.fillRect(dx, dy, cell, cell);
+          } else {
+            cx.fillStyle = "rgb(" + c.bead.r + "," + c.bead.g + "," + c.bead.b + ")";
+            cx.fillRect(dx, dy, cell, cell);
+            if (colorNumbers && colorNumbers[c.bead.id]) {
+              cx.fillStyle = contrastColor(c.bead.r, c.bead.g, c.bead.b);
+              cx.font = Math.floor(cell * 0.35) + "px sans-serif";
+              cx.textAlign = "center"; cx.textBaseline = "middle";
+              cx.fillText(colorNumbers[c.bead.id], dx + cell / 2, dy + cell / 2);
+            }
+          }
+          cx.strokeStyle = "#ddd"; cx.lineWidth = 0.5;
+          cx.strokeRect(dx, dy, cell, cell);
+        }
+      }
+
+      // 页眉
+      cx.fillStyle = "#333";
+      cx.font = "14px sans-serif"; cx.textAlign = "left"; cx.textBaseline = "alphabetic";
+      cx.fillText("拼豆模板 · " + totalW + "×" + totalH + " · " + pg.label + " · 第 " + page + "/" + pages.length + " 页", 20, 20);
+      cx.font = "12px sans-serif"; cx.fillStyle = "#888";
+      cx.fillText("行 " + (pg.y0 + 1) + "-" + (pg.y0 + ph) + " / 列 " + (pg.x0 + 1) + "-" + (pg.x0 + pw), 20, cv.height - 15);
+
+      // 颜色清单放在模板下方
+      var legendY = oy + ph * cell + 10;
+      cx.font = "11px sans-serif"; cx.textAlign = "left";
+      var cols = Math.max(1, Math.floor((cv.width - 40) / 140));
+      colorArr.forEach(function (it, i) {
+        var row = Math.floor(i / cols);
+        var col = i % cols;
+        var lx = 20 + col * Math.floor((cv.width - 40) / cols);
+        var ly = legendY + row * 16;
+        if (ly < cv.height) {
+          cx.fillStyle = "rgb(" + it.bead.r + "," + it.bead.g + "," + it.bead.b + ")";
+          cx.fillRect(lx, ly - 10, 12, 12);
+          cx.fillStyle = "#333";
+          cx.fillText(getBrandId(it.bead) + " " + getBrandName(it.bead) + " ×" + it.n, lx + 16, ly);
+        }
+      });
+
+      var dataUrl = cv.toDataURL("image/png");
+      html += '<div class="print-page">' +
+        '<img src="' + dataUrl + '" alt="第' + page + '页">' +
+        '</div>';
+    });
 
     printPreviewEl.innerHTML = html +
       '<div class="print-actions">' +
       '<button onclick="window.print()" class="btn-primary">🖨️ 打印</button>' +
-      '<span class="hint">共 ' + totalPages + ' 页，A4 ' + (orient === "portrait" ? "纵向" : "横向") + '</span>' +
+      '<span class="hint">共 ' + pages.length + ' 页，A4 ' + (orient === "portrait" ? "纵向" : "横向") + (boards ? '（按分板）' : '（整图）') + '</span>' +
       '</div>';
     printPreviewEl.hidden = false;
     printPreviewEl.scrollIntoView({ behavior: "smooth", block: "start" });
