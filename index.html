@@ -61,7 +61,7 @@
       <h2><span class="step-badge alt">★</span>创意工具箱</h2>
       <p class="hint">不依赖图片，一键生成各类拼豆模板</p>
 
-      <details class="tool-block" open>
+      <details class="tool-block">
         <summary>🌀 对称曼陀罗生成器</summary>
         <p class="hint">选对称轴和配色，一键生成旋转对称的几何拼豆图案</p>
         <div class="row2">
@@ -152,6 +152,38 @@
         </label>
         <button id="calcBtn" class="btn-primary">📐 计算尺寸</button>
         <div id="calcOut" class="calc-out" hidden></div>
+      </details>
+
+      <details class="tool-block">
+        <summary>💾 图纸收藏夹</summary>
+        <p class="hint">保存当前模板，下次打开可直接加载使用（离线存储在本地）</p>
+        <label class="field"><span>图纸名称</span>
+          <input id="patternName" type="text" placeholder="如：橘猫头像" maxlength="20">
+        </label>
+        <button id="savePatternBtn" class="btn-primary">💾 收藏当前模板</button>
+        <div id="patternList" class="pattern-list"></div>
+      </details>
+
+      <details class="tool-block">
+        <summary>🖨️ 打印分页排版</summary>
+        <p class="hint">将大图模板拆分到 A4 纸打印，带对齐标记和每页颜色清单</p>
+        <div class="row2">
+          <label class="field"><span>纸张方向</span>
+            <select id="printOrient">
+              <option value="portrait" selected>纵向</option>
+              <option value="landscape">横向</option>
+            </select>
+          </label>
+          <label class="field"><span>格子大小</span>
+            <select id="printCell">
+              <option value="16">小（每页更多豆）</option>
+              <option value="24" selected>中（推荐）</option>
+              <option value="36">大（清晰易读）</option>
+            </select>
+          </label>
+        </div>
+        <button id="printBtn" class="btn-primary">🖨️ 生成打印页</button>
+        <div id="printPreview" class="print-preview" hidden></div>
       </details>
     </section>
 
