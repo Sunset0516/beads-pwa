@@ -165,6 +165,43 @@ body{
   background:linear-gradient(180deg,#f5f8ff,#eef2fc);
   border:1.5px solid var(--line);
 }
+
+/* 图纸收藏夹 */
+.pattern-list{margin-top:10px;max-height:320px;overflow-y:auto}
+.pattern-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px;border:1.5px solid var(--line);border-radius:10px;
+  margin-bottom:8px;background:#fff;transition:.15s;
+}
+.pattern-item:hover{border-color:var(--c5);background:#f7faff}
+.pattern-thumb{
+  width:48px;height:48px;border-radius:8px;border:1px solid var(--line);
+  object-fit:cover;flex-shrink:0;image-rendering:pixelated;
+}
+.pattern-info{flex:1;min-width:0}
+.pattern-info b{display:block;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pattern-info span{font-size:12px;color:var(--muted)}
+.pattern-load{flex-shrink:0}
+
+/* 打印分页排版 */
+.print-preview{margin-top:12px}
+.print-page{
+  margin-bottom:16px;padding:8px;
+  border:1.5px solid var(--line);border-radius:10px;
+  background:#fff;page-break-after:always;
+}
+.print-page img{width:100%;height:auto;border-radius:6px}
+.print-actions{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 0;border-top:1.5px solid var(--line);
+}
+@media print{
+  body * {visibility:hidden}
+  .print-preview,.print-preview *{visibility:visible}
+  .print-page{page-break-after:always;margin:0;padding:0;border:none}
+  .print-actions{display:none}
+  .print-preview{position:absolute;left:0;top:0}
+}
 .calc-row{
   display:flex;justify-content:space-between;align-items:center;
   padding:7px 0;font-size:14px;border-bottom:1px dashed rgba(0,0,0,.08);
