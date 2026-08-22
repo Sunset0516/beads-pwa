@@ -1487,6 +1487,6 @@
 
   /* ================= Service Worker ================= */
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-    window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+    window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js?v=14").catch(function () {}); });
   }
 })();
