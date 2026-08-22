@@ -1,5 +1,5 @@
-// 拼豆识别器 Service Worker - 离线缓存 v13（修复所有品牌重复白/黑条目，确保H2白H7黑唯一）
-var CACHE = "beads-pwa-v13";
+// 拼豆识别器 Service Worker - 离线缓存 v14（新增图纸收藏夹 + 打印分页排版功能）
+var CACHE = "beads-pwa-v14";
 var ASSETS = [
   "./",
   "./index.html",
