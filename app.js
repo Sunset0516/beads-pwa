@@ -81,6 +81,8 @@
   var perPack = $("perPack"), price = $("price"), shopSummary = $("shopSummary");
   var colorList = $("colorList");
   var paletteBrandSel = $("paletteBrand"), paletteHintEl = $("paletteHint");
+  var patternNameEl = $("patternName"), savePatternBtn = $("savePatternBtn"), patternListEl = $("patternList");
+  var printOrientEl = $("printOrient"), printCellEl = $("printCell"), printBtn = $("printBtn"), printPreviewEl = $("printPreview");
 
   /* ---------- 状态 ---------- */
   var currentImage = null;
@@ -1232,6 +1234,255 @@
       "<div class='calc-row'><b>豆子规格</b><span>" + bead + " mm</span></div>" +
       "<div class='calc-row'><b>成品尺寸</b><span>" + wcm + " × " + hcm + " cm</span></div>" +
       "<div class='calc-row'><b>对角线</b><span>" + (Math.sqrt(w*w+h*h)*bead/10).toFixed(1) + " cm</span></div>";
+  });
+
+  /* ================= 图纸收藏夹 ================= */
+  var patternsKey = "beads-patterns-v1";
+  function loadPatterns() {
+    try { return JSON.parse(localStorage.getItem(patternsKey)) || []; } catch (e) { return []; }
+  }
+  function savePatterns(arr) {
+    try { localStorage.setItem(patternsKey, JSON.stringify(arr)); } catch (e) { alert("存储空间不足，请删除部分旧图纸"); }
+  }
+
+  // 生成缩略图 dataURL
+  function gridToThumb(grid, w, h) {
+    var s = Math.max(2, Math.floor(120 / Math.max(w, h)));
+    var cv = document.createElement("canvas");
+    cv.width = w * s; cv.height = h * s;
+    var cx = cv.getContext("2d");
+    cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height);
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+      var c = grid[y][x];
+      if (!c) { cx.fillStyle = "#f0f0f0"; cx.fillRect(x * s, y * s, s, s); continue; }
+      cx.fillStyle = "rgb(" + c.bead.r + "," + c.bead.g + "," + c.bead.b + ")";
+      cx.fillRect(x * s, y * s, s, s);
+    }
+    return cv.toDataURL("image/png");
+  }
+
+  // 收藏当前模板
+  savePatternBtn.addEventListener("click", function () {
+    if (!lastResult) { alert("请先生成一个模板"); return; }
+    var name = (patternNameEl.value || "").trim();
+    if (!name) { alert("请输入图纸名称"); patternNameEl.focus(); return; }
+    var patterns = loadPatterns();
+    var thumb = gridToThumb(lastResult.grid, lastResult.w, lastResult.h);
+    // 序列化 grid：只保存 bead id，加载时恢复
+    var lightGrid = [];
+    for (var y = 0; y < lastResult.h; y++) {
+      var row = [];
+      for (var x = 0; x < lastResult.w; x++) {
+        var c = lastResult.grid[y][x];
+        row.push(c ? { id: c.bead.id, d: c.dist || 0 } : null);
+      }
+      lightGrid.push(row);
+    }
+    patterns.unshift({
+      id: Date.now(),
+      name: name,
+      w: lastResult.w, h: lastResult.h,
+      bsz: lastResult.boardSize,
+      maxDist: lastResult.maxDist,
+      grid: lightGrid,
+      thumb: thumb,
+      time: new Date().toLocaleDateString("zh-CN")
+    });
+    // 最多保存 50 个
+    if (patterns.length > 50) patterns = patterns.slice(0, 50);
+    savePatterns(patterns);
+    patternNameEl.value = "";
+    renderPatternList();
+  });
+
+  // 恢复 grid（从 lightGrid 重建 cell 对象）
+  function restoreGrid(lightGrid, w, h) {
+    var grid = [];
+    for (var y = 0; y < h; y++) {
+      var row = [];
+      for (var x = 0; x < w; x++) {
+        var c = lightGrid[y][x];
+        if (!c) { row.push(null); continue; }
+        var bead = findBead(c.id);
+        if (!bead) { row.push(null); continue; }
+        row.push({ bead: bead, dist: c.d || 0 });
+      }
+      grid.push(row);
+    }
+    return grid;
+  }
+
+  // 渲染图纸列表
+  function renderPatternList() {
+    var patterns = loadPatterns();
+    if (patterns.length === 0) {
+      patternListEl.innerHTML = '<p class="hint" style="margin:8px 0">暂无收藏的图纸</p>';
+      return;
+    }
+    var html = "";
+    patterns.forEach(function (p) {
+      html += '<div class="pattern-item">' +
+        '<img src="' + p.thumb + '" class="pattern-thumb" alt="' + p.name + '">' +
+        '<div class="pattern-info"><b>' + p.name + '</b><span>' + p.w + '×' + p.h + ' · ' + p.time + '</span></div>' +
+        '<button class="btn-mini pattern-load" data-id="' + p.id + '">加载</button>' +
+        '<button class="btn-icon pattern-del" data-id="' + p.id + '">🗑️</button>' +
+        '</div>';
+    });
+    patternListEl.innerHTML = html;
+  }
+
+  // 列表点击事件（事件委托）
+  patternListEl.addEventListener("click", function (e) {
+    var btn = e.target.closest("button");
+    if (!btn) return;
+    var id = parseInt(btn.dataset.id);
+    var patterns = loadPatterns();
+    var p = patterns.find(function (x) { return x.id === id; });
+    if (!p) return;
+    if (btn.classList.contains("pattern-load")) {
+      var grid = restoreGrid(p.grid, p.w, p.h);
+      currentImage = null;
+      previewWrap.hidden = true; dropZone.style.display = "";
+      generateBtn.disabled = false;
+      sizeW.value = p.w; sizeH.value = p.h; sizePreset.value = "0";
+      applyResult(grid, p.w, p.h, p.bsz || 0, p.maxDist || 0);
+    } else if (btn.classList.contains("pattern-del")) {
+      if (!confirm("删除图纸「" + p.name + "」？")) return;
+      patterns = patterns.filter(function (x) { return x.id !== id; });
+      savePatterns(patterns);
+      renderPatternList();
+    }
+  });
+
+  // 页面加载时渲染列表
+  renderPatternList();
+
+  /* ================= 打印分页排版 ================= */
+  printBtn.addEventListener("click", function () {
+    if (!lastResult) { alert("请先生成一个模板"); return; }
+    var cell = parseInt(printCellEl.value) || 24;
+    var orient = printOrientEl.value;
+    // A4 纸可打印像素区域（留 15mm 边距）
+    // 纵向 180×262mm，横向 262×180mm，按 3.78px/mm
+    var pW, pH;
+    if (orient === "portrait") { pW = 180; pH = 252; }
+    else { pW = 252; pH = 180; }
+    var beadsPerRow = Math.floor((pW * 3.78 - 40) / cell);  // 留 40px 给页边信息
+    var beadsPerCol = Math.floor((pH * 3.78 - 60) / cell);
+    if (beadsPerRow < 5) beadsPerRow = 5;
+    if (beadsPerCol < 5) beadsPerCol = 5;
+
+    var grid = lastResult.grid;
+    var totalW = lastResult.w, totalH = lastResult.h;
+    var pagesW = Math.ceil(totalW / beadsPerRow);
+    var pagesH = Math.ceil(totalH / beadsPerCol);
+    var totalPages = pagesW * pagesH;
+
+    var html = "";
+    for (var py = 0; py < pagesH; py++) {
+      for (var px = 0; px < pagesW; px++) {
+        var page = py * pagesW + px + 1;
+        var x0 = px * beadsPerRow, y0 = py * beadsPerCol;
+        var w = Math.min(beadsPerRow, totalW - x0);
+        var h = Math.min(beadsPerCol, totalH - y0);
+
+        // 生成该页 canvas
+        var cv = document.createElement("canvas");
+        cv.width = w * cell + 40;
+        cv.height = h * cell + 80;
+        var cx = cv.getContext("2d");
+        cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height);
+
+        // 对齐标记
+        cx.strokeStyle = "#888"; cx.lineWidth = 1.5;
+        var mk = 12, ox = 20, oy = 30;
+        // 左上
+        cx.beginPath(); cx.moveTo(ox, oy + mk); cx.lineTo(ox, oy); cx.lineTo(ox + mk, oy); cx.stroke();
+        // 右上
+        cx.beginPath(); cx.moveTo(ox + w * cell - mk, oy); cx.lineTo(ox + w * cell, oy); cx.lineTo(ox + w * cell, oy + mk); cx.stroke();
+        // 左下
+        cx.beginPath(); cx.moveTo(ox, oy + h * cell - mk); cx.lineTo(ox, oy + h * cell); cx.lineTo(ox + mk, oy + h * cell); cx.stroke();
+        // 右下
+        cx.beginPath(); cx.moveTo(ox + w * cell - mk, oy + h * cell); cx.lineTo(ox + w * cell, oy + h * cell); cx.lineTo(ox + w * cell, oy + h * cell - mk); cx.stroke();
+
+        // 网格线和颜色
+        for (var gy = 0; gy < h; gy++) {
+          for (var gx = 0; gx < w; gx++) {
+            var c = grid[y0 + gy][x0 + gx];
+            var dx = ox + gx * cell, dy = oy + gy * cell;
+            if (!c) {
+              // 透明：画棋盘格背景
+              cx.fillStyle = ((gx + gy) % 2 === 0) ? "#f5f5f5" : "#e8e8e8";
+              cx.fillRect(dx, dy, cell, cell);
+            } else {
+              cx.fillStyle = "rgb(" + c.bead.r + "," + c.bead.g + "," + c.bead.b + ")";
+              cx.fillRect(dx, dy, cell, cell);
+              // 编号
+              if (colorNumbers && colorNumbers[c.bead.id]) {
+                cx.fillStyle = contrastColor(c.bead.r, c.bead.g, c.bead.b);
+                cx.font = Math.floor(cell * 0.35) + "px sans-serif";
+                cx.textAlign = "center"; cx.textBaseline = "middle";
+                cx.fillText(colorNumbers[c.bead.id], dx + cell / 2, dy + cell / 2);
+              }
+            }
+            // 网格线
+            cx.strokeStyle = "#ddd"; cx.lineWidth = 0.5;
+            cx.strokeRect(dx, dy, cell, cell);
+          }
+        }
+
+        // 页眉信息
+        cx.fillStyle = "#333";
+        cx.font = "14px sans-serif"; cx.textAlign = "left"; cx.textBaseline = "alphabetic";
+        cx.fillText("拼豆模板 · " + totalW + "×" + totalH + " · 第 " + page + "/" + totalPages + " 页", 20, 20);
+        // 区域信息
+        cx.font = "12px sans-serif"; cx.fillStyle = "#888";
+        cx.fillText("行 " + (y0 + 1) + "-" + (y0 + h) + " / 列 " + (x0 + 1) + "-" + (x0 + w), 20, cv.height - 15);
+
+        // 本页颜色清单
+        var pageColors = {};
+        for (var gy2 = 0; gy2 < h; gy2++) for (var gx2 = 0; gx2 < w; gx2++) {
+          var c2 = grid[y0 + gy2][x0 + gx2];
+          if (!c2) continue;
+          var id2 = c2.bead.id;
+          if (!pageColors[id2]) pageColors[id2] = { bead: c2.bead, n: 0 };
+          pageColors[id2].n++;
+        }
+        var colorArr = Object.keys(pageColors).map(function (k) { return pageColors[k]; });
+        colorArr.sort(function (a, b) { return b.n - a.n; });
+        var legendY = cv.height - 20;
+        var legendX = ox + w * cell + 10;
+        if (legendX + 120 > cv.width) legendX = 20;
+        cx.font = "11px sans-serif";
+        colorArr.forEach(function (it, i) {
+          var bid = getBrandId(it.bead);
+          var bname = getBrandName(it.bead);
+          var row = Math.floor(i / 4);
+          var col = i % 4;
+          var lx = 20 + col * (cv.width - 40) / 4;
+          var ly = cv.height - 20 + row * 16;
+          if (ly < cv.height) {
+            cx.fillStyle = "rgb(" + it.bead.r + "," + it.bead.g + "," + it.bead.b + ")";
+            cx.fillRect(lx, ly - 10, 12, 12);
+            cx.fillStyle = "#333";
+            cx.fillText(bid + " " + bname + " ×" + it.n, lx + 16, ly);
+          }
+        });
+
+        var dataUrl = cv.toDataURL("image/png");
+        html += '<div class="print-page">' +
+          '<img src="' + dataUrl + '" alt="第' + page + '页">' +
+          '</div>';
+      }
+    }
+
+    printPreviewEl.innerHTML = html +
+      '<div class="print-actions">' +
+      '<button onclick="window.print()" class="btn-primary">🖨️ 打印</button>' +
+      '<span class="hint">共 ' + totalPages + ' 页，A4 ' + (orient === "portrait" ? "纵向" : "横向") + '</span>' +
+      '</div>';
+    printPreviewEl.hidden = false;
+    printPreviewEl.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 
   /* ================= Service Worker ================= */
