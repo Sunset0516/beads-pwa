@@ -10,9 +10,14 @@
   <title>拼豆识别器</title>
   <link rel="stylesheet" href="styles.css" />
   <script>
-    // 进入页面第一时间：清除所有浏览器缓存中的旧资源（避免旧版缓存导致黑屏）
+    // 进入页面第一时间：清除旧缓存并注销旧 Service Worker（避免旧版缓存导致功能失效）
     if ("caches" in window) {
       try { caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); }); } catch (e) {}
+    }
+    if (navigator.serviceWorker) {
+      navigator.serviceWorker.getRegistrations().then(function (regs) {
+        regs.forEach(function (r) { r.unregister(); });
+      }).catch(function () {});
     }
   </script>
 </head>
