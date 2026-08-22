@@ -171,23 +171,22 @@
 
       <details class="tool-block">
         <summary>🖨️ 打印分页排版</summary>
-        <p class="hint">将大图模板拆分到 A4 纸打印，带对齐标记和每页颜色清单</p>
+        <p class="hint">按拼豆板边长拆分到 A4 纸打印，每块板一页，带对齐标记和颜色清单</p>
         <div class="row2">
+          <label class="field"><span>拼豆板边长（每边豆数）</span>
+            <input id="printBoardSize" type="number" value="29" min="2" max="100" />
+          </label>
           <label class="field"><span>纸张方向</span>
             <select id="printOrient">
               <option value="portrait" selected>纵向</option>
               <option value="landscape">横向</option>
             </select>
           </label>
-          <label class="field"><span>格子大小</span>
-            <select id="printCell">
-              <option value="16">小（每页更多豆）</option>
-              <option value="24" selected>中（推荐）</option>
-              <option value="36">大（清晰易读）</option>
-            </select>
-          </label>
         </div>
-        <button id="printBtn" class="btn-primary">🖨️ 生成打印页</button>
+        <div class="row2">
+          <button id="printBtn" class="btn-primary">🖨️ 按板分页打印</button>
+          <button id="printDirectBtn" class="btn-secondary">📄 直接打印模板图</button>
+        </div>
         <div id="printPreview" class="print-preview" hidden></div>
       </details>
     </section>
