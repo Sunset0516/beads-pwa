@@ -82,7 +82,7 @@
   var colorList = $("colorList");
   var paletteBrandSel = $("paletteBrand"), paletteHintEl = $("paletteHint");
   var patternNameEl = $("patternName"), savePatternBtn = $("savePatternBtn"), patternListEl = $("patternList");
-  var printOrientEl = $("printOrient"), printCellEl = $("printCell"), printBtn = $("printBtn"), printPreviewEl = $("printPreview");
+  var printOrientEl = $("printOrient"), printBoardSizeEl = $("printBoardSize"), printBtn = $("printBtn"), printDirectBtn = $("printDirectBtn"), printPreviewEl = $("printPreview");
 
   /* ---------- 状态 ---------- */
   var currentImage = null;
@@ -1358,9 +1358,12 @@
   renderPatternList();
 
   /* ================= 打印分页排版 ================= */
+  // 按板分页打印
   printBtn.addEventListener("click", function () {
     if (!lastResult) { alert("请先生成一个模板"); return; }
     var orient = printOrientEl.value;
+    var bsz = parseInt(printBoardSizeEl.value) || 29;
+    if (bsz < 2) bsz = 2;
     // A4 可打印像素区域（留 15mm 边距，3.78px/mm）
     var pW, pH;
     if (orient === "portrait") { pW = 680; pH = 952; }
@@ -1369,17 +1372,17 @@
     var grid = lastResult.grid;
     var totalW = lastResult.w, totalH = lastResult.h;
 
-    // 确定分页方式：有分板 → 每块板一页；无分板 → 整图一页
+    // 按用户输入的板边长分板
+    var cols = Math.ceil(totalW / bsz), rows = Math.ceil(totalH / bsz);
     var pages = [];
-    if (boards && boards.length > 0) {
-      // 分板模式：每块板一页
-      boards.forEach(function (b) {
-        pages.push({ x0: b.x0, y0: b.y0, w: b.w, h: b.h, label: "板 " + (b.r + 1) + "-" + (b.c + 1) });
-      });
-    } else {
-      // 不分板：整图一页
-      pages.push({ x0: 0, y0: 0, w: totalW, h: totalH, label: "整图" });
-    }
+    for (var r = 0; r < rows; r++)
+      for (var c = 0; c < cols; c++)
+        pages.push({
+          x0: c * bsz, y0: r * bsz,
+          w: Math.min(bsz, totalW - c * bsz),
+          h: Math.min(bsz, totalH - r * bsz),
+          label: "板 " + (r + 1) + "-" + (c + 1)
+        });
 
     // 渲染每页
     var html = "";
@@ -1387,15 +1390,12 @@
       var page = idx + 1;
       var pw = pg.w, ph = pg.h;
 
-      // 自动计算格子大小：让内容尽量填满 A4
-      var availW = pW - 40, availH = pH - 60;
-      var maxCell = Math.floor(Math.min(availW / pw, availH / ph));
-      // 用户选择的格子大小作为上限
-      var userCell = parseInt(printCellEl.value) || 24;
-      var cell = Math.min(maxCell, userCell);
+      // 自动计算格子大小：尽量填满 A4
+      var availW = pW - 40, availH = pH - 80;
+      var cell = Math.floor(Math.min(availW / pw, availH / ph));
       if (cell < 6) cell = 6;
 
-      // 先统计本页颜色数量，用于计算 canvas 高度
+      // 先统计本页颜色
       var pageColors = {};
       for (var gy2 = 0; gy2 < ph; gy2++) for (var gx2 = 0; gx2 < pw; gx2++) {
         var c2 = grid[pg.y0 + gy2][pg.x0 + gx2];
@@ -1407,7 +1407,7 @@
       var colorArr = Object.keys(pageColors).map(function (k) { return pageColors[k]; });
       colorArr.sort(function (a, b) { return b.n - a.n; });
 
-      // canvas 高度：模板区域 + 颜色清单区域
+      // canvas 高度 = 模板区域 + 颜色清单
       var legendCols = Math.max(1, Math.floor((pw * cell) / 140));
       var legendRows = Math.ceil(colorArr.length / legendCols);
       var legendH = legendRows * 16 + 20;
@@ -1452,37 +1452,48 @@
       // 页眉
       cx.fillStyle = "#333";
       cx.font = "14px sans-serif"; cx.textAlign = "left"; cx.textBaseline = "alphabetic";
-      cx.fillText("拼豆模板 · " + totalW + "×" + totalH + " · " + pg.label + " · 第 " + page + "/" + pages.length + " 页", 20, 20);
+      cx.fillText("拼豆模板 " + totalW + "x" + totalH + "  " + pg.label + "  第" + page + "/" + pages.length + "页", 20, 20);
       cx.font = "12px sans-serif"; cx.fillStyle = "#888";
-      cx.fillText("行 " + (pg.y0 + 1) + "-" + (pg.y0 + ph) + " / 列 " + (pg.x0 + 1) + "-" + (pg.x0 + pw), 20, cv.height - 15);
+      cx.fillText("行" + (pg.y0 + 1) + "-" + (pg.y0 + ph) + " / 列" + (pg.x0 + 1) + "-" + (pg.x0 + pw), 20, cv.height - 15);
 
-      // 颜色清单放在模板下方
+      // 颜色清单
       var legendY = oy + ph * cell + 10;
       cx.font = "11px sans-serif"; cx.textAlign = "left";
-      var cols = Math.max(1, Math.floor((cv.width - 40) / 140));
+      var lcols = Math.max(1, Math.floor((cv.width - 40) / 140));
       colorArr.forEach(function (it, i) {
-        var row = Math.floor(i / cols);
-        var col = i % cols;
-        var lx = 20 + col * Math.floor((cv.width - 40) / cols);
+        var row = Math.floor(i / lcols);
+        var col = i % lcols;
+        var lx = 20 + col * Math.floor((cv.width - 40) / lcols);
         var ly = legendY + row * 16;
         if (ly < cv.height) {
           cx.fillStyle = "rgb(" + it.bead.r + "," + it.bead.g + "," + it.bead.b + ")";
           cx.fillRect(lx, ly - 10, 12, 12);
           cx.fillStyle = "#333";
-          cx.fillText(getBrandId(it.bead) + " " + getBrandName(it.bead) + " ×" + it.n, lx + 16, ly);
+          cx.fillText(getBrandId(it.bead) + " " + getBrandName(it.bead) + " x" + it.n, lx + 16, ly);
         }
       });
 
-      var dataUrl = cv.toDataURL("image/png");
-      html += '<div class="print-page">' +
-        '<img src="' + dataUrl + '" alt="第' + page + '页">' +
-        '</div>';
+      html += '<div class="print-page"><img src="' + cv.toDataURL("image/png") + '" alt="第' + page + '页"></div>';
     });
 
     printPreviewEl.innerHTML = html +
       '<div class="print-actions">' +
-      '<button onclick="window.print()" class="btn-primary">🖨️ 打印</button>' +
-      '<span class="hint">共 ' + pages.length + ' 页，A4 ' + (orient === "portrait" ? "纵向" : "横向") + (boards ? '（按分板）' : '（整图）') + '</span>' +
+      '<button onclick="window.print()" class="btn-primary">打印</button>' +
+      '<span class="hint">共 ' + pages.length + ' 页（板边长' + bsz + '），A4 ' + (orient === "portrait" ? "纵向" : "横向") + '</span>' +
+      '</div>';
+    printPreviewEl.hidden = false;
+    printPreviewEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  // 直接打印模板图
+  printDirectBtn.addEventListener("click", function () {
+    if (!lastResult) { alert("请先生成一个模板"); return; }
+    var cv = buildExportCanvas();
+    var dataUrl = cv.toDataURL("image/png");
+    printPreviewEl.innerHTML = '<div class="print-page"><img src="' + dataUrl + '" alt="模板图"></div>' +
+      '<div class="print-actions">' +
+      '<button onclick="window.print()" class="btn-primary">打印</button>' +
+      '<span class="hint">直接打印模板图（' + lastResult.w + 'x' + lastResult.h + '）</span>' +
       '</div>';
     printPreviewEl.hidden = false;
     printPreviewEl.scrollIntoView({ behavior: "smooth", block: "start" });
